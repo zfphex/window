@@ -1,3 +1,5 @@
+use std::os::windows::prelude::OsStrExt;
+
 pub type HWND = isize;
 pub type WPARAM = usize;
 pub type LPARAM = isize;
@@ -5,6 +7,11 @@ pub type LRESULT = isize;
 pub type DWORD = u32;
 pub type BOOL = i32;
 pub type UINT = u32;
+pub type LPCSTR = *const i8;
+pub type LPCWSTR = *const u16;
+
+//This type doesn't make any sense.
+pub enum VOID {}
 
 #[rustfmt::skip]
 pub type WNDPROC = Option<unsafe extern "system" fn(param0: isize, param1: u32, param2: usize, param3: isize) -> isize>;
@@ -27,10 +34,33 @@ pub struct MSG {
     pub pt: Point,
 }
 
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct WINDOWCOMPOSITIONATTRIBDATA {
+    Attrib: u32,
+    pvData: *mut std::ffi::c_void,
+    cbData: usize,
+}
+
 #[link(name = "user32")]
+#[link(name = "uxtheme")]
 extern "system" {
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
 
+    ///Return value
+    ///
+    ///Type: `HWND`
+    ///
+    ///If the function succeeds, the return value is a handle to the new window.
+    ///
+    ///If the function fails, the return value is `NULL`. To get extended error information, call GetLastError.
+    ///
+    ///This function typically fails for one of the following reasons:
+    ///
+    ///- an invalid parameter value
+    ///- the system class was registered by a different module
+    ///- The WH_CBT hook is installed and returns a failure code
+    ///- if one of the controls in the dialog template is not registered, or its window window procedure fails WM_CREATE or WM_NCCREATE
     pub fn CreateWindowExA(
         dwexstyle: u32,
         lpclassname: *const u8,
@@ -69,7 +99,20 @@ extern "system" {
 
     pub fn GetLastError() -> u32;
 
+    //Dark mode
+    pub fn GetProcAddress(hModule: *mut VOID, lpProcName: *const i8) -> *mut VOID;
+    pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID;
+    pub fn SetWindowTheme(
+        hwnd: isize,
+        pszSubAppName: *const u16,
+        pszSubIdList: *const u16,
+    ) -> isize;
+    pub fn SetWindowCompositionAttribute(
+        hwnd: isize,
+        data: *mut WINDOWCOMPOSITIONATTRIBDATA,
+    ) -> i32;
 }
+
 ///The window has a thin-line border
 pub const WS_BORDER: u32 = 0x00800000;
 
@@ -256,31 +299,120 @@ impl Default for WNDCLASSA {
     }
 }
 
-pub fn create_window(title: &str, options: u32) {
+pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
+    //Title must be null terminated.
+    let title = std::ffi::CString::new(title).unwrap();
     let wnd_class = WNDCLASSA {
         wnd_proc: Some(DefWindowProcA),
-        class_name: title.as_ptr(),
+        class_name: title.as_ptr() as *const u8,
         style: CS_HREDRAW,
         ..Default::default()
     };
 
     let _result = unsafe { RegisterClassA(&wnd_class) };
 
-    let _window = unsafe {
+    let hwnd = unsafe {
         CreateWindowExA(
             0,
-            title.as_ptr(),
-            title.as_ptr(),
+            title.as_ptr() as *const u8,
+            title.as_ptr() as *const u8,
             options,
             // WS_POPUP | WS_VISIBLE | WS_MAXIMIZE,
             0,
             0,
-            0,
-            0,
+            width,
+            height,
             0,
             0,
             0,
             std::ptr::null(),
         )
+    };
+
+    assert_ne!(hwnd, 0);
+    // let r = set_dark_mode_for_window(hwnd, false);
+    // dbg!(r);
+    // let str: Vec<u16> = std::ffi::OsString::from("DarkMode_Explorer")
+    //     .encode_wide()
+    //     .collect();
+    // dbg!(unsafe { SetWindowTheme(hwnd, str.as_ptr(), 0 as *const u16) });
+    let mut is_dark_mode_bigbool = true as i32;
+    let mut data = WINDOWCOMPOSITIONATTRIBDATA {
+        Attrib: WCA_USEDARKMODECOLORS,
+        pvData: &mut is_dark_mode_bigbool as *mut _ as _,
+        cbData: std::mem::size_of_val(&is_dark_mode_bigbool) as _,
+    };
+    unsafe { SetWindowCompositionAttribute(hwnd, &mut data) };
+}
+
+pub fn window_event(msg: &mut MSG) {
+    let message_result = unsafe { GetMessageA(msg, 0, 0, 0) };
+    if message_result == 0 {
+        // break;
+    } else if message_result == -1 {
+        let last_error = unsafe { GetLastError() };
+        panic!("Error with `GetMessageA`, error code: {}", last_error);
+    } else {
+        unsafe {
+            TranslateMessage(msg);
+            DispatchMessageA(msg);
+        }
+    }
+}
+
+const WCA_USEDARKMODECOLORS: u32 = 26;
+
+fn set_dark_mode_for_window(hwnd: HWND, is_dark_mode: bool) -> bool {
+    // use std::cell::LazyCell;
+    use std::ffi::c_void;
+    // Uses Windows undocumented API SetWindowCompositionAttribute,
+    // as seen in win32-darkmode example linked at top of file.
+
+    type SetWindowCompositionAttribute =
+        unsafe extern "system" fn(HWND, *mut WINDOWCOMPOSITIONATTRIBDATA) -> BOOL;
+
+    // static SET_WINDOW_COMPOSITION_ATTRIBUTE: Lazy<Option<SetWindowCompositionAttribute>> =
+    //     Lazy::new(|| get_function!("user32.dll", SetWindowCompositionAttribute));
+
+    let set_window_attr = get_function!("user32.dll", SetWindowCompositionAttribute);
+
+    // if let Some(set_window_composition_attribute) = *SET_WINDOW_COMPOSITION_ATTRIBUTE {
+    if let Some(set_window_composition_attribute) = set_window_attr {
+        unsafe {
+            // SetWindowCompositionAttribute needs a bigbool (i32), not bool.
+            let mut is_dark_mode_bigbool = is_dark_mode as i32;
+
+            let mut data = WINDOWCOMPOSITIONATTRIBDATA {
+                Attrib: WCA_USEDARKMODECOLORS,
+                pvData: &mut is_dark_mode_bigbool as *mut _ as _,
+                cbData: std::mem::size_of_val(&is_dark_mode_bigbool) as _,
+            };
+
+            set_window_composition_attribute(hwnd, &mut data) != 0
+        }
+    } else {
+        false
+    }
+}
+
+// Helper function to dynamically load function pointer.
+// `library` and `function` must be zero-terminated.
+pub fn get_function_impl(library: &str, function: &str) -> Option<*const std::ffi::c_void> {
+    assert_eq!(library.chars().last(), Some('\0'));
+    assert_eq!(function.chars().last(), Some('\0'));
+
+    let module = unsafe { LoadLibraryA(library.as_ptr() as *const i8) };
+    if module.is_null() {
+        return None;
+    }
+
+    unsafe { Some(GetProcAddress(module, function.as_ptr() as *const i8) as _) }
+}
+
+#[macro_export]
+macro_rules! get_function {
+    ($lib:expr, $func:ident) => {
+        $crate::get_function_impl(concat!($lib, '\0'), concat!(stringify!($func), '\0'))
+            .map(|f| unsafe { std::mem::transmute::<*const _, $func>(f) })
     };
 }
