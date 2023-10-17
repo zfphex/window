@@ -1,5 +1,7 @@
 use std::os::windows::prelude::OsStrExt;
 
+pub mod dark_mode;
+
 pub type HWND = isize;
 pub type WPARAM = usize;
 pub type LPARAM = isize;
@@ -107,10 +109,9 @@ extern "system" {
         pszSubAppName: *const u16,
         pszSubIdList: *const u16,
     ) -> isize;
-    pub fn SetWindowCompositionAttribute(
-        hwnd: isize,
-        data: *mut WINDOWCOMPOSITIONATTRIBDATA,
-    ) -> i32;
+
+    pub fn GetWindow(hWnd: isize, uCmd: u32) -> isize;
+    pub fn GetForegroundWindow() -> isize;
 }
 
 ///The window has a thin-line border
@@ -267,6 +268,14 @@ pub const CS_SAVEBITS: u32 = 0x0800;
 /// Redraws the entire window if a movement or size adjustment changes the height of the client area.
 pub const CS_VREDRAW: u32 = 0x0001;
 
+//
+//
+//
+pub const CW_USEDEFAULT: i32 = -2147483648i32;
+//
+//
+//
+
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct WNDCLASSA {
@@ -317,32 +326,32 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
             title.as_ptr() as *const u8,
             title.as_ptr() as *const u8,
             options,
-            // WS_POPUP | WS_VISIBLE | WS_MAXIMIZE,
-            0,
-            0,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
             width,
             height,
             0,
             0,
-            0,
+            get_instance_handle(),
             std::ptr::null(),
         )
     };
 
     assert_ne!(hwnd, 0);
+
+    dark_mode::try_theme(hwnd);
     // let r = set_dark_mode_for_window(hwnd, false);
     // dbg!(r);
     // let str: Vec<u16> = std::ffi::OsString::from("DarkMode_Explorer")
     //     .encode_wide()
     //     .collect();
     // dbg!(unsafe { SetWindowTheme(hwnd, str.as_ptr(), 0 as *const u16) });
-    let mut is_dark_mode_bigbool = true as i32;
-    let mut data = WINDOWCOMPOSITIONATTRIBDATA {
-        Attrib: WCA_USEDARKMODECOLORS,
-        pvData: &mut is_dark_mode_bigbool as *mut _ as _,
-        cbData: std::mem::size_of_val(&is_dark_mode_bigbool) as _,
-    };
-    unsafe { SetWindowCompositionAttribute(hwnd, &mut data) };
+    // let mut is_dark_mode_bigbool = true as i32;
+    // let mut data = WINDOWCOMPOSITIONATTRIBDATA {
+    //     Attrib: WCA_USEDARKMODECOLORS,
+    //     pvData: &mut is_dark_mode_bigbool as *mut _ as _,
+    //     cbData: std::mem::size_of_val(&is_dark_mode_bigbool) as _,
+    // };
 }
 
 pub fn window_event(msg: &mut MSG) {
@@ -361,6 +370,44 @@ pub fn window_event(msg: &mut MSG) {
 }
 
 const WCA_USEDARKMODECOLORS: u32 = 26;
+
+// pub type HMODULE = isize;
+pub fn get_instance_handle() -> isize {
+    // Gets the instance handle by taking the address of the
+    // pseudo-variable created by the microsoft linker:
+    // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
+
+    // This is preferred over GetModuleHandle(NULL) because it also works in DLLs:
+    // https://stackoverflow.com/questions/21718027/getmodulehandlenull-vs-hinstance
+    #[repr(C, packed(2))]
+    pub struct IMAGE_DOS_HEADER {
+        pub e_magic: u16,
+        pub e_cblp: u16,
+        pub e_cp: u16,
+        pub e_crlc: u16,
+        pub e_cparhdr: u16,
+        pub e_minalloc: u16,
+        pub e_maxalloc: u16,
+        pub e_ss: u16,
+        pub e_sp: u16,
+        pub e_csum: u16,
+        pub e_ip: u16,
+        pub e_cs: u16,
+        pub e_lfarlc: u16,
+        pub e_ovno: u16,
+        pub e_res: [u16; 4],
+        pub e_oemid: u16,
+        pub e_oeminfo: u16,
+        pub e_res2: [u16; 10],
+        pub e_lfanew: i32,
+    }
+
+    extern "C" {
+        static __ImageBase: IMAGE_DOS_HEADER;
+    }
+
+    unsafe { &__ImageBase as *const _ as _ }
+}
 
 fn set_dark_mode_for_window(hwnd: HWND, is_dark_mode: bool) -> bool {
     // use std::cell::LazyCell;
