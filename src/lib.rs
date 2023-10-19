@@ -1,6 +1,6 @@
-use std::os::windows::prelude::OsStrExt;
+pub mod constants;
 
-pub mod dark_mode;
+pub use constants::*;
 
 pub type HWND = isize;
 pub type WPARAM = usize;
@@ -11,6 +11,11 @@ pub type BOOL = i32;
 pub type UINT = u32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
+
+use std::{
+    ffi::{c_void, OsString},
+    os::windows::prelude::OsStrExt,
+};
 
 //This type doesn't make any sense.
 pub enum VOID {}
@@ -34,14 +39,6 @@ pub struct MSG {
     pub l_param: isize,
     pub time: u32,
     pub pt: Point,
-}
-
-#[allow(non_snake_case)]
-#[repr(C)]
-pub struct WINDOWCOMPOSITIONATTRIBDATA {
-    Attrib: u32,
-    pvData: *mut std::ffi::c_void,
-    cbData: usize,
 }
 
 #[link(name = "user32")]
@@ -308,17 +305,34 @@ impl Default for WNDCLASSA {
     }
 }
 
+unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
+    match msg {
+        // WM_CLOSE => drop(DestroyWindow(hWnd)),
+        // WM_DESTROY => PostQuitMessage(0),
+        WM_CLOSE => todo!(),
+        WM_CREATE => {
+            set_dark_mode(hwnd);
+        }
+        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
+    }
+    0
+}
+
+//TODO: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
 pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
     //Title must be null terminated.
     let title = std::ffi::CString::new(title).unwrap();
     let wnd_class = WNDCLASSA {
-        wnd_proc: Some(DefWindowProcA),
+        // wnd_proc: Some(DefWindowProcA),
+        wnd_proc: Some(test_proc),
         class_name: title.as_ptr() as *const u8,
         style: CS_HREDRAW,
         ..Default::default()
     };
 
     let _result = unsafe { RegisterClassA(&wnd_class) };
+
+    let hinstance = get_instance_handle();
 
     let hwnd = unsafe {
         CreateWindowExA(
@@ -332,14 +346,15 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
             height,
             0,
             0,
-            get_instance_handle(),
+            hinstance,
             std::ptr::null(),
         )
     };
 
     assert_ne!(hwnd, 0);
 
-    dark_mode::try_theme(hwnd);
+    // unsafe { set_dark_mode(hwnd) };
+    // dark_mode::try_theme(hwnd);
     // let r = set_dark_mode_for_window(hwnd, false);
     // dbg!(r);
     // let str: Vec<u16> = std::ffi::OsString::from("DarkMode_Explorer")
@@ -409,57 +424,42 @@ pub fn get_instance_handle() -> isize {
     unsafe { &__ImageBase as *const _ as _ }
 }
 
-fn set_dark_mode_for_window(hwnd: HWND, is_dark_mode: bool) -> bool {
-    // use std::cell::LazyCell;
-    use std::ffi::c_void;
-    // Uses Windows undocumented API SetWindowCompositionAttribute,
-    // as seen in win32-darkmode example linked at top of file.
-
-    type SetWindowCompositionAttribute =
-        unsafe extern "system" fn(HWND, *mut WINDOWCOMPOSITIONATTRIBDATA) -> BOOL;
-
-    // static SET_WINDOW_COMPOSITION_ATTRIBUTE: Lazy<Option<SetWindowCompositionAttribute>> =
-    //     Lazy::new(|| get_function!("user32.dll", SetWindowCompositionAttribute));
-
-    let set_window_attr = get_function!("user32.dll", SetWindowCompositionAttribute);
-
-    // if let Some(set_window_composition_attribute) = *SET_WINDOW_COMPOSITION_ATTRIBUTE {
-    if let Some(set_window_composition_attribute) = set_window_attr {
-        unsafe {
-            // SetWindowCompositionAttribute needs a bigbool (i32), not bool.
-            let mut is_dark_mode_bigbool = is_dark_mode as i32;
-
-            let mut data = WINDOWCOMPOSITIONATTRIBDATA {
-                Attrib: WCA_USEDARKMODECOLORS,
-                pvData: &mut is_dark_mode_bigbool as *mut _ as _,
-                cbData: std::mem::size_of_val(&is_dark_mode_bigbool) as _,
-            };
-
-            set_window_composition_attribute(hwnd, &mut data) != 0
-        }
-    } else {
-        false
-    }
-}
-
-// Helper function to dynamically load function pointer.
-// `library` and `function` must be zero-terminated.
-pub fn get_function_impl(library: &str, function: &str) -> Option<*const std::ffi::c_void> {
-    assert_eq!(library.chars().last(), Some('\0'));
-    assert_eq!(function.chars().last(), Some('\0'));
-
-    let module = unsafe { LoadLibraryA(library.as_ptr() as *const i8) };
-    if module.is_null() {
-        return None;
+unsafe fn set_dark_mode(hwnd: isize) {
+    #[repr(C)]
+    pub struct WINDOWCOMPOSITIONATTRIBDATA {
+        attrib: u32,
+        data: *mut c_void,
+        size: usize,
     }
 
-    unsafe { Some(GetProcAddress(module, function.as_ptr() as *const i8) as _) }
-}
+    unsafe fn proc(module: *mut VOID, name: &str) -> *const c_void {
+        GetProcAddress(module, name.as_ptr() as *const i8) as *const c_void
+    }
 
-#[macro_export]
-macro_rules! get_function {
-    ($lib:expr, $func:ident) => {
-        $crate::get_function_impl(concat!($lib, '\0'), concat!(stringify!($func), '\0'))
-            .map(|f| unsafe { std::mem::transmute::<*const _, $func>(f) })
+    // let result = SetWindowTheme(hwnd, utf16!("DarkMode_Explorer").as_ptr(), std::ptr::null());
+    // assert_eq!(result, 0);
+
+    let user32 = LoadLibraryA(b"user32.dll\0" as *const u8 as *const i8);
+    let uxtheme = LoadLibraryA(b"uxtheme.dll\0" as *const u8 as *const i8);
+
+    let set_window = proc(user32, "SetWindowCompositionAttribute\0");
+    let set_window = std::mem::transmute::<
+        *const _,
+        unsafe extern "system" fn(isize, *mut WINDOWCOMPOSITIONATTRIBDATA) -> i32,
+    >(set_window);
+
+    // let should = GetProcAddress(uxtheme, 106 as *const i8) as *const c_void;
+    // let should = std::mem::transmute::<*const _, unsafe extern "system" fn() -> bool>(should);
+
+    // let refresh = GetProcAddress(uxtheme, 104 as *const i8) as *const c_void;
+    // let refresh = std::mem::transmute::<*const _, unsafe extern "system" fn()>(refresh);
+
+    let mut data = WINDOWCOMPOSITIONATTRIBDATA {
+        attrib: WCA_USEDARKMODECOLORS,
+        data: std::mem::transmute(&mut 1i32),
+        size: std::mem::size_of::<i32>(),
     };
+
+    let result = set_window(hwnd, &mut data);
+    assert_ne!(result, 0);
 }
