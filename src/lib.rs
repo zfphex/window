@@ -1,5 +1,4 @@
 pub mod constants;
-
 pub use constants::*;
 
 pub type HWND = isize;
@@ -11,11 +10,6 @@ pub type BOOL = i32;
 pub type UINT = u32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
-
-use std::{
-    ffi::{c_void, OsString},
-    os::windows::prelude::OsStrExt,
-};
 
 //This type doesn't make any sense.
 pub enum VOID {}
@@ -352,21 +346,6 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
     };
 
     assert_ne!(hwnd, 0);
-
-    // unsafe { set_dark_mode(hwnd) };
-    // dark_mode::try_theme(hwnd);
-    // let r = set_dark_mode_for_window(hwnd, false);
-    // dbg!(r);
-    // let str: Vec<u16> = std::ffi::OsString::from("DarkMode_Explorer")
-    //     .encode_wide()
-    //     .collect();
-    // dbg!(unsafe { SetWindowTheme(hwnd, str.as_ptr(), 0 as *const u16) });
-    // let mut is_dark_mode_bigbool = true as i32;
-    // let mut data = WINDOWCOMPOSITIONATTRIBDATA {
-    //     Attrib: WCA_USEDARKMODECOLORS,
-    //     pvData: &mut is_dark_mode_bigbool as *mut _ as _,
-    //     cbData: std::mem::size_of_val(&is_dark_mode_bigbool) as _,
-    // };
 }
 
 pub fn window_event(msg: &mut MSG) {
@@ -384,9 +363,6 @@ pub fn window_event(msg: &mut MSG) {
     }
 }
 
-const WCA_USEDARKMODECOLORS: u32 = 26;
-
-// pub type HMODULE = isize;
 pub fn get_instance_handle() -> isize {
     // Gets the instance handle by taking the address of the
     // pseudo-variable created by the microsoft linker:
@@ -395,7 +371,7 @@ pub fn get_instance_handle() -> isize {
     // This is preferred over GetModuleHandle(NULL) because it also works in DLLs:
     // https://stackoverflow.com/questions/21718027/getmodulehandlenull-vs-hinstance
     #[repr(C, packed(2))]
-    pub struct IMAGE_DOS_HEADER {
+    pub struct ImageDosHeader {
         pub e_magic: u16,
         pub e_cblp: u16,
         pub e_cp: u16,
@@ -418,41 +394,29 @@ pub fn get_instance_handle() -> isize {
     }
 
     extern "C" {
-        static __ImageBase: IMAGE_DOS_HEADER;
+        static __ImageBase: ImageDosHeader;
     }
 
     unsafe { &__ImageBase as *const _ as _ }
 }
 
-unsafe fn set_dark_mode(hwnd: isize) {
+///Windows versions >=1903. TODO: Check version and skip if unavailable..
+unsafe fn set_dark_mode(hwnd: isize) -> bool {
+    const WCA_USEDARKMODECOLORS: u32 = 26;
+
     #[repr(C)]
-    pub struct WINDOWCOMPOSITIONATTRIBDATA {
+    struct WINDOWCOMPOSITIONATTRIBDATA {
         attrib: u32,
-        data: *mut c_void,
+        data: *mut std::ffi::c_void,
         size: usize,
     }
 
-    unsafe fn proc(module: *mut VOID, name: &str) -> *const c_void {
-        GetProcAddress(module, name.as_ptr() as *const i8) as *const c_void
-    }
-
-    // let result = SetWindowTheme(hwnd, utf16!("DarkMode_Explorer").as_ptr(), std::ptr::null());
-    // assert_eq!(result, 0);
-
-    let user32 = LoadLibraryA(b"user32.dll\0" as *const u8 as *const i8);
-    let uxtheme = LoadLibraryA(b"uxtheme.dll\0" as *const u8 as *const i8);
-
-    let set_window = proc(user32, "SetWindowCompositionAttribute\0");
-    let set_window = std::mem::transmute::<
-        *const _,
-        unsafe extern "system" fn(isize, *mut WINDOWCOMPOSITIONATTRIBDATA) -> i32,
-    >(set_window);
-
-    // let should = GetProcAddress(uxtheme, 106 as *const i8) as *const c_void;
-    // let should = std::mem::transmute::<*const _, unsafe extern "system" fn() -> bool>(should);
-
-    // let refresh = GetProcAddress(uxtheme, 104 as *const i8) as *const c_void;
-    // let refresh = std::mem::transmute::<*const _, unsafe extern "system" fn()>(refresh);
+    let user32 = LoadLibraryA("user32.dll\0".as_ptr() as *const i8);
+    let f = GetProcAddress(
+        user32,
+        "SetWindowCompositionAttribute\0".as_ptr() as *const i8,
+    );
+    let set_window: fn(isize, *mut WINDOWCOMPOSITIONATTRIBDATA) -> i32 = std::mem::transmute(f);
 
     let mut data = WINDOWCOMPOSITIONATTRIBDATA {
         attrib: WCA_USEDARKMODECOLORS,
@@ -460,6 +424,5 @@ unsafe fn set_dark_mode(hwnd: isize) {
         size: std::mem::size_of::<i32>(),
     };
 
-    let result = set_window(hwnd, &mut data);
-    assert_ne!(result, 0);
+    set_window(hwnd, &mut data) != 0
 }
