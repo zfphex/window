@@ -11,11 +11,7 @@ pub type UINT = u32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
 
-//This type doesn't make any sense.
-pub enum VOID {}
-
-#[rustfmt::skip]
-pub type WNDPROC = Option<unsafe extern "system" fn(param0: isize, param1: u32, param2: usize, param3: isize) -> isize>;
+pub enum VOID__ {}
 
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
@@ -36,7 +32,6 @@ pub struct MSG {
 }
 
 #[link(name = "user32")]
-#[link(name = "uxtheme")]
 extern "system" {
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
 
@@ -69,6 +64,10 @@ extern "system" {
         lpparam: *const std::ffi::c_void,
     ) -> isize;
 
+    pub fn DestroyWindow(hWnd: isize) -> i32;
+
+    pub fn PostQuitMessage(nExitCode: i32);
+
     pub fn PeekMessageA(
         lpmsg: *mut MSG,
         hwnd: isize,
@@ -92,17 +91,14 @@ extern "system" {
 
     pub fn GetLastError() -> u32;
 
-    //Dark mode
-    pub fn GetProcAddress(hModule: *mut VOID, lpProcName: *const i8) -> *mut VOID;
-    pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID;
-    pub fn SetWindowTheme(
-        hwnd: isize,
-        pszSubAppName: *const u16,
-        pszSubIdList: *const u16,
-    ) -> isize;
-
     pub fn GetWindow(hWnd: isize, uCmd: u32) -> isize;
+
     pub fn GetForegroundWindow() -> isize;
+
+    pub fn GetProcAddress(hModule: *mut VOID__, lpProcName: *const i8) -> *mut VOID__;
+
+    pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID__;
+
 }
 
 ///The window has a thin-line border
@@ -271,7 +267,9 @@ pub const CW_USEDEFAULT: i32 = -2147483648i32;
 #[derive(Debug, Clone)]
 pub struct WNDCLASSA {
     pub style: u32,
-    pub wnd_proc: WNDPROC,
+    pub wnd_proc: Option<
+        unsafe extern "system" fn(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize,
+    >,
     pub cls_extra: i32,
     pub wnd_extra: i32,
     pub instance: isize,
@@ -301,11 +299,14 @@ impl Default for WNDCLASSA {
 
 unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
     match msg {
-        // WM_CLOSE => drop(DestroyWindow(hWnd)),
-        // WM_DESTROY => PostQuitMessage(0),
-        WM_CLOSE => todo!(),
+        WM_DESTROY => PostQuitMessage(0),
+        // WM_CLOSE => {
+        //     DestroyWindow(hwnd);
+        // }
         WM_CREATE => {
-            set_dark_mode(hwnd);
+            if !set_dark_mode(hwnd) {
+                println!("Failed to set dark mode!");
+            }
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
     }
@@ -346,21 +347,6 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
     };
 
     assert_ne!(hwnd, 0);
-}
-
-pub fn window_event(msg: &mut MSG) {
-    let message_result = unsafe { GetMessageA(msg, 0, 0, 0) };
-    if message_result == 0 {
-        // break;
-    } else if message_result == -1 {
-        let last_error = unsafe { GetLastError() };
-        panic!("Error with `GetMessageA`, error code: {}", last_error);
-    } else {
-        unsafe {
-            TranslateMessage(msg);
-            DispatchMessageA(msg);
-        }
-    }
 }
 
 pub fn get_instance_handle() -> isize {
@@ -412,17 +398,16 @@ unsafe fn set_dark_mode(hwnd: isize) -> bool {
     }
 
     let user32 = LoadLibraryA("user32.dll\0".as_ptr() as *const i8);
-    let f = GetProcAddress(
+    let func = GetProcAddress(
         user32,
         "SetWindowCompositionAttribute\0".as_ptr() as *const i8,
     );
-    let set_window: fn(isize, *mut WINDOWCOMPOSITIONATTRIBDATA) -> i32 = std::mem::transmute(f);
-
+    let set_window: fn(isize, *mut WINDOWCOMPOSITIONATTRIBDATA) -> i32 = std::mem::transmute(func);
+    let mut dark_mode: i32 = 1;
     let mut data = WINDOWCOMPOSITIONATTRIBDATA {
         attrib: WCA_USEDARKMODECOLORS,
-        data: std::mem::transmute(&mut 1i32),
-        size: std::mem::size_of::<i32>(),
+        data: &mut dark_mode as *mut _ as _,
+        size: 4,
     };
-
     set_window(hwnd, &mut data) != 0
 }
