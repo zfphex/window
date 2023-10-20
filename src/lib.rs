@@ -313,8 +313,13 @@ unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam
     0
 }
 
+pub struct Window {
+    pub hwnd: isize,
+    pub hinstance: isize,
+}
+
 //TODO: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
-pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
+pub fn create_window(title: &str, width: i32, height: i32, options: u32) -> Window {
     //Title must be null terminated.
     let title = std::ffi::CString::new(title).unwrap();
     let wnd_class = WNDCLASSA {
@@ -326,9 +331,7 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
     };
 
     let _result = unsafe { RegisterClassA(&wnd_class) };
-
     let hinstance = get_instance_handle();
-
     let hwnd = unsafe {
         CreateWindowExA(
             0,
@@ -347,6 +350,39 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) {
     };
 
     assert_ne!(hwnd, 0);
+
+    Window { hwnd, hinstance }
+}
+
+pub enum Event {
+    Quit,
+    Todo,
+}
+
+static mut MSG: MSG = MSG {
+    hwnd: 0,
+    message: 0,
+    w_param: 0,
+    l_param: 0,
+    time: 0,
+    pt: Point { x: 0, y: 0 },
+};
+
+pub fn event() -> Event {
+    let message_result = unsafe { GetMessageA(&mut MSG, 0, 0, 0) };
+    if message_result == 0 {
+        Event::Quit
+    } else if message_result == -1 {
+        let last_error = unsafe { GetLastError() };
+        panic!("Error with `GetMessageA`, error code: {}", last_error);
+    } else {
+        //Handle message here.
+        unsafe {
+            TranslateMessage(&mut MSG);
+            DispatchMessageA(&mut MSG);
+        }
+        Event::Todo
+    }
 }
 
 pub fn get_instance_handle() -> isize {

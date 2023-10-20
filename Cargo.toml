@@ -1,5 +1,5 @@
 [package]
-name = "win-window"
+name = "win_window"
 version = "0.1.0"
 edition = "2021"
 
