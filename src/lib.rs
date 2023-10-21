@@ -8,6 +8,7 @@ pub type LRESULT = isize;
 pub type DWORD = u32;
 pub type BOOL = i32;
 pub type UINT = u32;
+pub type LONG = i32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
 
@@ -18,6 +19,23 @@ pub enum VOID__ {}
 pub struct Point {
     pub x: i32,
     pub y: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone)]
+pub struct RECT {
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+}
+impl RECT {
+    pub fn width(&self) -> i32 {
+        self.left.abs() + self.right.abs()
+    }
+    pub fn height(&self) -> i32 {
+        self.top.abs() + self.bottom.abs()
+    }
 }
 
 #[repr(C)]
@@ -63,6 +81,8 @@ extern "system" {
         hinstance: isize,
         lpparam: *const std::ffi::c_void,
     ) -> isize;
+
+    pub fn AdjustWindowRectEx(lpRect: *mut RECT, dwStyle: u32, bMenu: i32, dwExStyle: u32) -> i32;
 
     pub fn DestroyWindow(hWnd: isize) -> i32;
 
@@ -332,6 +352,8 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) -> Wind
 
     let _result = unsafe { RegisterClassA(&wnd_class) };
     let hinstance = get_instance_handle();
+    let rect = get_window_size(width, height, options);
+
     let hwnd = unsafe {
         CreateWindowExA(
             0,
@@ -340,8 +362,10 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) -> Wind
             options,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            width,
-            height,
+            //TODO:
+            //Note: Width and height include the border.
+            rect.width(),
+            rect.height(),
             0,
             0,
             hinstance,
@@ -352,6 +376,24 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) -> Wind
     assert_ne!(hwnd, 0);
 
     Window { hwnd, hinstance }
+}
+
+pub fn get_window_size(width: i32, height: i32, options: u32) -> RECT {
+    let mut rect = RECT {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+    };
+    let result = unsafe { AdjustWindowRectEx(&mut rect as *mut RECT, options, 0, 0) };
+    if result == 0 {
+        let last_error = unsafe { GetLastError() };
+        panic!(
+            "Error with `AdjustWindowRectEx`, error code: {}",
+            last_error
+        );
+    }
+    rect
 }
 
 pub enum Event {
