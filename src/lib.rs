@@ -121,6 +121,18 @@ extern "system" {
 
 }
 
+/// Messages are not removed from the queue after processing by PeekMessage.
+pub const PM_NOREMOVE: u32 = 0x0000;
+
+/// Messages are removed from the queue after processing by PeekMessage.
+pub const PM_REMOVE: u32 = 0x0001;
+
+/// Prevents the system from releasing any thread that is waiting for the caller to go idle (see WaitForInputIdle).
+/// Combine this value with either PM_NOREMOVE or PM_REMOVE.
+pub const PM_NOYIELD: u32 = 0x0002;
+
+///////////////////////////////////////////
+
 ///The window has a thin-line border
 pub const WS_BORDER: u32 = 0x00800000;
 
@@ -399,6 +411,7 @@ pub fn get_window_size(width: i32, height: i32, options: u32) -> RECT {
 pub enum Event {
     Quit,
     Todo,
+    Empty,
 }
 
 static mut MSG: MSG = MSG {
@@ -411,6 +424,22 @@ static mut MSG: MSG = MSG {
 };
 
 pub fn event() -> Event {
+    let message_result = unsafe { PeekMessageA(&mut MSG, 0, 0, 0, PM_REMOVE) };
+    if message_result == 0 {
+        Event::Empty
+    } else {
+        if unsafe { MSG.message } == WM_QUIT {
+            return Event::Quit;
+        }
+        unsafe {
+            TranslateMessage(&mut MSG);
+            DispatchMessageA(&mut MSG);
+        }
+        Event::Todo
+    }
+}
+
+pub fn event_blocking() -> Event {
     let message_result = unsafe { GetMessageA(&mut MSG, 0, 0, 0) };
     if message_result == 0 {
         Event::Quit
