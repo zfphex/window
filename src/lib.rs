@@ -119,6 +119,10 @@ extern "system" {
 
     pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID__;
 
+    pub fn GetWindowLongPtrA(hWnd: isize, nIndex: i32) -> isize;
+
+    // pub fn wglGetProcAddress(lpszProc: *const i8) -> *mut VOID__;
+
 }
 
 /// Messages are not removed from the queue after processing by PeekMessage.
@@ -349,9 +353,23 @@ pub struct Window {
     pub hwnd: isize,
     pub hinstance: isize,
 }
+impl Window {
+    pub fn proc_addr(&self) -> isize {
+        unsafe { GetWindowLongPtrA(self.hwnd, GWLP_WNDPROC) }
+    }
+}
+
+// pub unsafe fn wgl_proc(name: &str) -> *mut VOID__ {
+//     let name = format!("{name}\0");
+//     dbg!(&name);
+//     let proc = wglGetProcAddress(name.as_ptr() as *const i8);
+//     dbg!(GetLastError());
+//     assert!(!proc.is_null());
+//     proc
+// }
 
 //TODO: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
-pub fn create_window(title: &str, width: i32, height: i32, options: u32) -> Window {
+pub fn create_window(title: &str, width: i32, height: i32) -> Window {
     //Title must be null terminated.
     let title = std::ffi::CString::new(title).unwrap();
     let wnd_class = WNDCLASSA {
@@ -361,6 +379,8 @@ pub fn create_window(title: &str, width: i32, height: i32, options: u32) -> Wind
         style: CS_HREDRAW,
         ..Default::default()
     };
+
+    let options = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
     let _result = unsafe { RegisterClassA(&wnd_class) };
     let hinstance = get_instance_handle();
@@ -493,7 +513,7 @@ pub fn get_instance_handle() -> isize {
     unsafe { &__ImageBase as *const _ as _ }
 }
 
-///Windows versions >=1903. TODO: Check version and skip if unavailable..
+///Only works on Windows 17763 and above.
 unsafe fn set_dark_mode(hwnd: isize) -> bool {
     const WCA_USEDARKMODECOLORS: u32 = 26;
 
@@ -502,6 +522,34 @@ unsafe fn set_dark_mode(hwnd: isize) -> bool {
         attrib: u32,
         data: *mut std::ffi::c_void,
         size: usize,
+    }
+
+    #[repr(C)]
+    struct OSVERSIONINFOW {
+        pub dw_osversion_info_size: u32,
+        pub dw_major_version: u32,
+        pub dw_minor_version: u32,
+        pub dw_build_number: u32,
+        pub dw_platform_id: u32,
+        pub sz_csdversion: [u16; 128],
+    }
+
+    //Check if this version of windows supports `SetWindowCompositionAttribute`.
+    let nt = LoadLibraryA("ntdll.dll\0".as_ptr() as *const i8);
+    let func = GetProcAddress(nt, "RtlGetVersion\0".as_ptr() as *const i8);
+    let get_version: fn(*mut OSVERSIONINFOW) -> i32 = std::mem::transmute(func);
+    let mut v: OSVERSIONINFOW = OSVERSIONINFOW {
+        dw_osversion_info_size: 0,
+        dw_major_version: 0,
+        dw_minor_version: 0,
+        dw_build_number: 0,
+        dw_platform_id: 0,
+        sz_csdversion: [0; 128],
+    };
+    let status = get_version(&mut v);
+
+    if v.dw_build_number < 17763 || status < 0 {
+        return false;
     }
 
     let user32 = LoadLibraryA("user32.dll\0".as_ptr() as *const i8);
@@ -516,5 +564,6 @@ unsafe fn set_dark_mode(hwnd: isize) -> bool {
         data: &mut dark_mode as *mut _ as _,
         size: 4,
     };
+
     set_window(hwnd, &mut data) != 0
 }

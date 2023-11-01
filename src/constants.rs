@@ -455,6 +455,12 @@ pub const WM_PENWINLAST: u32 = 0x038F;
 pub const WM_APP: u32 = 0x8000;
 pub const WM_USER: u32 = 0x0400;
 
+pub const GWLP_WNDPROC: i32 = -4;
+pub const GWLP_HINSTANCE: i32 = -6;
+pub const GWLP_HWNDPARENT: i32 = -8;
+pub const GWLP_USERDATA: i32 = -21;
+pub const GWLP_ID: i32 = -12;
+
 #[macro_export]
 macro_rules! utf16 {
     ($text:expr) => {{
