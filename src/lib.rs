@@ -86,6 +86,8 @@ extern "system" {
 
     pub fn DestroyWindow(hWnd: isize) -> i32;
 
+    /// Indicates to the system that a thread has made a request to terminate (quit).
+    /// It is typically used in response to a WM_DESTROY message.
     pub fn PostQuitMessage(nExitCode: i32);
 
     pub fn PeekMessageA(
@@ -333,22 +335,6 @@ impl Default for WNDCLASSA {
     }
 }
 
-unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
-    match msg {
-        WM_DESTROY => PostQuitMessage(0),
-        // WM_CLOSE => {
-        //     DestroyWindow(hwnd);
-        // }
-        WM_CREATE => {
-            if !set_dark_mode(hwnd) {
-                println!("Failed to set dark mode!");
-            }
-        }
-        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
-    }
-    0
-}
-
 pub struct Window {
     pub hwnd: isize,
     pub hinstance: isize,
@@ -443,12 +429,34 @@ static mut MSG: MSG = MSG {
     pt: Point { x: 0, y: 0 },
 };
 
+static mut QUIT: bool = false;
+
+unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
+    match msg {
+        WM_DESTROY | WM_CLOSE => {
+            QUIT = true;
+            // PostQuitMessage(0);
+            return 0;
+        }
+        // WM_CLOSE => {
+        // DestroyWindow(hwnd);
+        // }
+        WM_CREATE => {
+            if !set_dark_mode(hwnd) {
+                println!("Failed to set dark mode!");
+            }
+            return 0;
+        }
+        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
+    }
+}
+
 pub fn event() -> Event {
     let message_result = unsafe { PeekMessageA(&mut MSG, 0, 0, 0, PM_REMOVE) };
     if message_result == 0 {
         Event::Empty
     } else {
-        if unsafe { MSG.message } == WM_QUIT {
+        if unsafe { QUIT } {
             return Event::Quit;
         }
         unsafe {
