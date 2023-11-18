@@ -1,4 +1,4 @@
-use win_window::*;
+use window::*;
 
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {

@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "win_window"
+name = "window"
 version = "0.1.0"
