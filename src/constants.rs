@@ -639,6 +639,23 @@ pub const CS_VREDRAW: u32 = 0x0001;
 //TODO: Remove?
 pub const CW_USEDEFAULT: i32 = -2147483648i32;
 
+pub const IDC_ARROW: *const u16 = 32512 as *const u16;
+pub const IDC_IBEAM: *const u16 = 32513 as *const u16;
+pub const IDC_WAIT: *const u16 = 32514 as *const u16;
+pub const IDC_CROSS: *const u16 = 32515 as *const u16;
+pub const IDC_UPARROW: *const u16 = 32516 as *const u16;
+pub const IDC_SIZE: *const u16 = 32640 as *const u16;
+pub const IDC_ICON: *const u16 = 32641 as *const u16;
+pub const IDC_SIZENWSE: *const u16 = 32642 as *const u16;
+pub const IDC_SIZENESW: *const u16 = 32643 as *const u16;
+pub const IDC_SIZEWE: *const u16 = 32644 as *const u16;
+pub const IDC_SIZENS: *const u16 = 32645 as *const u16;
+pub const IDC_SIZEALL: *const u16 = 32646 as *const u16;
+pub const IDC_NO: *const u16 = 32648 as *const u16;
+pub const IDC_HAND: *const u16 = 32649 as *const u16;
+pub const IDC_APPSTARTING: *const u16 = 32650 as *const u16;
+pub const IDC_HELP: *const u16 = 32651 as *const u16;
+
 #[macro_export]
 macro_rules! utf16 {
     ($text:expr) => {{

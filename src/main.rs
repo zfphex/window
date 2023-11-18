@@ -7,6 +7,9 @@ fn main() {
     loop {
         match event() {
             Some(Event::Quit) => break,
+            Some(Event::Resize(width, height)) => {
+                dbg!(width, height);
+            }
             _ => {}
         }
     }

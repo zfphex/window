@@ -151,6 +151,8 @@ extern "system" {
 
     pub fn GetDC(hwnd: isize) -> *mut VOID;
 
+    pub fn LoadCursorW(hInstance: *mut VOID, lpCursorName: *const u16) -> *mut VOID;
+
     // pub fn wglGetProcAddress(lpszProc: *const i8) -> *mut VOID__;
 }
 
@@ -235,9 +237,12 @@ pub fn create_window(title: &str, width: i32, height: i32) -> Window {
         // wnd_proc: Some(DefWindowProcA),
         wnd_proc: Some(test_proc),
         class_name: title.as_ptr() as *const u8,
-        // style: CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-        style: CS_HREDRAW | CS_VREDRAW,
+        //https://devblogs.microsoft.com/oldnewthing/20060601-06/?p=31003
+        style: CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+        // style: 0,
         background: 0,
+        //Prevent cursor from changing when loading.
+        cursor: unsafe { LoadCursorW(std::ptr::null_mut(), IDC_ARROW) as isize },
         ..Default::default()
     };
 
