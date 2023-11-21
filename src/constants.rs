@@ -656,6 +656,22 @@ pub const IDC_HAND: *const u16 = 32649 as *const u16;
 pub const IDC_APPSTARTING: *const u16 = 32650 as *const u16;
 pub const IDC_HELP: *const u16 = 32651 as *const u16;
 
+pub const SW_HIDE: i32 = 0;
+pub const SW_SHOWNORMAL: i32 = 1;
+pub const SW_NORMAL: i32 = 1;
+pub const SW_SHOWMINIMIZED: i32 = 2;
+pub const SW_SHOWMAXIMIZED: i32 = 3;
+pub const SW_MAXIMIZE: i32 = 3;
+pub const SW_SHOWNOACTIVATE: i32 = 4;
+pub const SW_SHOW: i32 = 5;
+pub const SW_MINIMIZE: i32 = 6;
+pub const SW_SHOWMINNOACTIVE: i32 = 7;
+pub const SW_SHOWNA: i32 = 8;
+pub const SW_RESTORE: i32 = 9;
+pub const SW_SHOWDEFAULT: i32 = 10;
+pub const SW_FORCEMINIMIZE: i32 = 11;
+pub const SW_MAX: i32 = 11;
+
 #[macro_export]
 macro_rules! utf16 {
     ($text:expr) => {{
