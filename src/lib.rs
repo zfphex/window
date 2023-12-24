@@ -19,8 +19,9 @@ pub type LONG = i32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
 
-pub type VOID = std::ffi::c_void;
+// pub type VOID = std::ffi::c_void;
 // pub enum VOID {}
+pub type VOID = *const ();
 
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
@@ -185,10 +186,57 @@ extern "system" {
     pub fn GetDC(hwnd: isize) -> *mut VOID;
     pub fn LoadCursorW(hInstance: *mut VOID, lpCursorName: *const u16) -> *mut VOID;
     pub fn ShowWindow(hWnd: HWND, nCmdShow: i32) -> BOOL;
+    pub fn GetAsyncKeyState(vKey: i32) -> i16;
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Modifier {
+    None,
+    LeftControl,
+    LeftShift,
+    LeftAlt,
+    RightControl,
+    RightShift,
+    RightAlt,
+}
+
+// pub struct Key {
+//     code: u32,
+//     modifier: Modifier,
+// }
+
+const F24: i32 = VK_F1 + 23;
+
+#[derive(Debug, PartialEq)]
 pub enum Event {
     Quit,
+    // Key(char, Modifier),
+    //Key
+    Char(char),
+    Function(u8),
+    Enter,
+    Backspace,
+    Escape,
+    Control,
+    Shift,
+    Alt,
+    Tab,
+
+    Up,
+    Down,
+    Left,
+    Right,
+
+    LeftMouseDown,
+    MiddleMouseDown,
+    RightMouseDown,
+    LeftMouseUp,
+    MiddleMouseUp,
+    RightMouseUp,
+    ScrollUp,
+    ScrollDown,
+
+    Unknown(u16),
 }
 
 pub fn event() -> Option<Event> {
@@ -201,6 +249,121 @@ pub fn event() -> Option<Event> {
         match result {
             0 => None,
             _ => match MSG.message {
+                //TODO: Double clicks.
+                WM_MOUSEWHEEL => {
+                    const WHEEL_DELTA: i16 = 120;
+                    let value = (MSG.w_param >> 16) as i16;
+                    let delta = value as f32 / WHEEL_DELTA as f32;
+                    if delta >= 0.0 {
+                        Some(Event::ScrollUp)
+                    } else {
+                        Some(Event::ScrollDown)
+                    }
+                }
+                WM_LBUTTONDOWN => Some(Event::LeftMouseDown),
+                WM_LBUTTONUP => Some(Event::LeftMouseUp),
+                //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
+                WM_KEYDOWN => {
+                    // dbg!(&MSG);
+                    // if MSG.w_param < u8::MAX as usize {
+                    //     Some(Event::Key(
+                    //         MSG.w_param as u8 as char,
+                    //         if GetAsyncKeyState(VK_LCONTROL) == 1 {
+                    //             Modifier::LeftControl
+                    //         } else {
+                    //             Modifier::None
+                    //         },
+                    //     ))
+                    // } else {
+                    //     None
+                    // }
+
+                    // let control = GetAsyncKeyState(VK_LCONTROL) == 1;
+                    let shift = GetAsyncKeyState(VK_LSHIFT) == 1;
+                    let vk = MSG.w_param as i32;
+
+                    match vk {
+                        VK_UP => return Some(Event::Up),
+                        VK_DOWN => return Some(Event::Down),
+                        VK_LEFT => return Some(Event::Left),
+                        VK_RIGHT => return Some(Event::Right),
+                        VK_RETURN => return Some(Event::Enter),
+                        VK_SPACE => return Some(Event::Char(' ')),
+                        VK_BACK => return Some(Event::Backspace),
+                        VK_ESCAPE => return Some(Event::Escape),
+                        VK_TAB => return Some(Event::Tab),
+                        VK_SHIFT | VK_LSHIFT | VK_RSHIFT => return Some(Event::Shift),
+                        VK_CONTROL | VK_LCONTROL | VK_RCONTROL => return Some(Event::Control),
+                        VK_MENU | VK_LMENU | VK_RMENU => return Some(Event::Alt),
+
+                        //TODO: Tilde is kind of an odd ball.
+                        //Might need to handle this one better.
+                        VK_OEM_PLUS if shift => return Some(Event::Char('+')),
+                        VK_OEM_MINUS if shift => return Some(Event::Char('_')),
+                        VK_OEM_3 if shift => return Some(Event::Char('~')),
+                        VK_OEM_4 if shift => return Some(Event::Char('{')),
+                        VK_OEM_6 if shift => return Some(Event::Char('}')),
+                        VK_OEM_5 if shift => return Some(Event::Char('|')),
+                        VK_OEM_1 if shift => return Some(Event::Char(':')),
+                        VK_OEM_7 if shift => return Some(Event::Char('"')),
+                        VK_OEM_COMMA if shift => return Some(Event::Char('<')),
+                        VK_OEM_PERIOD if shift => return Some(Event::Char('>')),
+                        VK_OEM_2 if shift => return Some(Event::Char('?')),
+                        VK_OEM_PLUS => return Some(Event::Char('=')),
+                        VK_OEM_MINUS => return Some(Event::Char('-')),
+
+                        VK_OEM_3 => return Some(Event::Char('`')),
+                        VK_OEM_4 => return Some(Event::Char('[')),
+                        VK_OEM_6 => return Some(Event::Char(']')),
+                        VK_OEM_5 => return Some(Event::Char('\\')),
+                        VK_OEM_1 => return Some(Event::Char(';')),
+                        VK_OEM_7 => return Some(Event::Char('\'')),
+                        VK_OEM_COMMA => return Some(Event::Char(',')),
+                        VK_OEM_PERIOD => return Some(Event::Char('.')),
+                        VK_OEM_2 => return Some(Event::Char('/')),
+
+                        VK_F1..=F24 => return Some(Event::Function((vk - VK_F1 as i32 + 1) as u8)),
+                        // Handle alphanumeric keys (A-Z, 0-9).
+                        0x30..=0x39 | 0x41..=0x5A => {
+                            // Buffer to hold the Unicode characters.
+                            // let mut buffer: [u16; 5] = [0; 5];
+                            //This would return a multi-character key if this wasn't blank.
+                            // let keyboard_state: [u8; 256] = [0; 256];
+
+                            let result = 1;
+                            // let result = ToUnicode(
+                            //     vk as u32,
+                            //     sc as u32,
+                            //     keyboard_state.as_ptr(),
+                            //     buffer.as_mut_ptr(),
+                            //     buffer.len() as i32,
+                            //     0,
+                            // );
+                            match result {
+                                1 if shift => {
+                                    // let char = buffer[0] as u8 as char;
+                                    let char = vk as u8 as char;
+                                    return Some(Event::Char(match char {
+                                        '1' => '!',
+                                        '2' => '@',
+                                        '3' => '#',
+                                        '4' => '$',
+                                        '5' => '%',
+                                        '6' => '^',
+                                        '7' => '&',
+                                        '8' => '*',
+                                        '9' => '(',
+                                        '0' => ')',
+                                        _ => char.to_ascii_uppercase(),
+                                    }));
+                                }
+                                1 => return Some(Event::Char(vk as u8 as char)),
+                                _ => unimplemented!(),
+                            }
+                        }
+                        _ => return Some(Event::Unknown(vk as u16)),
+                    }
+                }
                 _ => {
                     TranslateMessage(&mut MSG);
                     DispatchMessageA(&mut MSG);
