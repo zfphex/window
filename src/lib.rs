@@ -3,6 +3,8 @@ mod constants;
 mod gdi;
 mod window;
 
+use std::ptr::addr_of_mut;
+
 pub use constants::*;
 pub use gdi::*;
 pub use window::*;
@@ -19,9 +21,9 @@ pub type LONG = i32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
 
-// pub type VOID = std::ffi::c_void;
 // pub enum VOID {}
-pub type VOID = *const ();
+// pub type VOID = *const ();
+pub type VOID = std::ffi::c_void;
 
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
@@ -31,7 +33,7 @@ pub struct Point {
 }
 
 #[repr(C)]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Rect {
     pub left: i32,
     pub top: i32,
@@ -187,6 +189,8 @@ extern "system" {
     pub fn LoadCursorW(hInstance: *mut VOID, lpCursorName: *const u16) -> *mut VOID;
     pub fn ShowWindow(hWnd: HWND, nCmdShow: i32) -> BOOL;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
+    pub fn GetKeyState(nVirtKey: i32) -> i16;
+    pub fn GetCursorPos(lpPoint: *mut Point) -> i32;
 }
 
 #[derive(Debug, PartialEq)]
@@ -227,6 +231,9 @@ pub enum Event {
     Left,
     Right,
 
+    //(0, 0) is top left of window.
+    Mouse(usize, usize),
+
     LeftMouseDown,
     MiddleMouseDown,
     RightMouseDown,
@@ -239,16 +246,47 @@ pub enum Event {
     Unknown(u16),
 }
 
+pub fn mouse_pos() -> (i32, i32) {
+    let mut point = Point { x: 0, y: 0 };
+    let _ = unsafe { GetCursorPos(&mut point) };
+
+    (point.x, point.y)
+}
+
+pub struct Modifiers {
+    pub control: bool,
+    pub shift: bool,
+    pub alt: bool,
+    pub win: bool,
+}
+
+//https://github.com/makepad/makepad/blob/69bef6bab686284e1e3ab83ee803f29c5c9f40e5/platform/src/os/windows/win32_window.rs#L765
+fn modifiers() -> Modifiers {
+    unsafe {
+        Modifiers {
+            control: GetKeyState(VK_CONTROL) & 0x80 > 0,
+            shift: GetKeyState(VK_SHIFT) & 0x80 > 0,
+            alt: GetKeyState(VK_MENU) & 0x80 > 0,
+            win: GetKeyState(VK_LWIN) & 0x80 > 0 || GetKeyState(VK_RWIN) & 0x80 > 0,
+        }
+    }
+}
+
 pub fn event() -> Option<Event> {
     unsafe {
         if QUIT {
             return Some(Event::Quit);
         }
 
-        let result = PeekMessageA(&mut MSG, 0, 0, 0, PM_REMOVE);
+        let result = PeekMessageA(addr_of_mut!(MSG), 0, 0, 0, PM_REMOVE);
         match result {
             0 => None,
             _ => match MSG.message {
+                WM_MOUSEMOVE => {
+                    let x = MSG.l_param & 0xFFFF;
+                    let y = MSG.l_param >> 16 & 0xFFFF;
+                    Some(Event::Mouse(x as usize, y as usize))
+                }
                 //TODO: Double clicks.
                 WM_MOUSEWHEEL => {
                     const WHEEL_DELTA: i16 = 120;
@@ -264,23 +302,9 @@ pub fn event() -> Option<Event> {
                 WM_LBUTTONUP => Some(Event::LeftMouseUp),
                 //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
                 WM_KEYDOWN => {
-                    // dbg!(&MSG);
-                    // if MSG.w_param < u8::MAX as usize {
-                    //     Some(Event::Key(
-                    //         MSG.w_param as u8 as char,
-                    //         if GetAsyncKeyState(VK_LCONTROL) == 1 {
-                    //             Modifier::LeftControl
-                    //         } else {
-                    //             Modifier::None
-                    //         },
-                    //     ))
-                    // } else {
-                    //     None
-                    // }
-
-                    // let control = GetAsyncKeyState(VK_LCONTROL) == 1;
-                    let shift = GetAsyncKeyState(VK_LSHIFT) == 1;
                     let vk = MSG.w_param as i32;
+                    let modifiers = modifiers();
+                    let shift = modifiers.shift;
 
                     match vk {
                         VK_UP => return Some(Event::Up),
@@ -323,50 +347,34 @@ pub fn event() -> Option<Event> {
                         VK_OEM_2 => return Some(Event::Char('/')),
 
                         VK_F1..=F24 => return Some(Event::Function((vk - VK_F1 as i32 + 1) as u8)),
-                        // Handle alphanumeric keys (A-Z, 0-9).
+                        //(A-Z) (0-9)
                         0x30..=0x39 | 0x41..=0x5A => {
-                            // Buffer to hold the Unicode characters.
-                            // let mut buffer: [u16; 5] = [0; 5];
-                            //This would return a multi-character key if this wasn't blank.
-                            // let keyboard_state: [u8; 256] = [0; 256];
-
-                            let result = 1;
-                            // let result = ToUnicode(
-                            //     vk as u32,
-                            //     sc as u32,
-                            //     keyboard_state.as_ptr(),
-                            //     buffer.as_mut_ptr(),
-                            //     buffer.len() as i32,
-                            //     0,
-                            // );
-                            match result {
-                                1 if shift => {
-                                    // let char = buffer[0] as u8 as char;
-                                    let char = vk as u8 as char;
-                                    return Some(Event::Char(match char {
-                                        '1' => '!',
-                                        '2' => '@',
-                                        '3' => '#',
-                                        '4' => '$',
-                                        '5' => '%',
-                                        '6' => '^',
-                                        '7' => '&',
-                                        '8' => '*',
-                                        '9' => '(',
-                                        '0' => ')',
-                                        _ => char.to_ascii_uppercase(),
-                                    }));
-                                }
-                                1 => return Some(Event::Char(vk as u8 as char)),
-                                _ => unimplemented!(),
+                            let vk = vk as u8 as char;
+                            if shift {
+                                Some(Event::Char(match vk {
+                                    '1' => '!',
+                                    '2' => '@',
+                                    '3' => '#',
+                                    '4' => '$',
+                                    '5' => '%',
+                                    '6' => '^',
+                                    '7' => '&',
+                                    '8' => '*',
+                                    '9' => '(',
+                                    '0' => ')',
+                                    _ => vk,
+                                }))
+                            } else {
+                                //I think all alphabetical inputs are UPPERCASE.
+                                Some(Event::Char(vk.to_ascii_lowercase()))
                             }
                         }
-                        _ => return Some(Event::Unknown(vk as u16)),
+                        _ => Some(Event::Unknown(vk as u16)),
                     }
                 }
                 _ => {
-                    TranslateMessage(&mut MSG);
-                    DispatchMessageA(&mut MSG);
+                    TranslateMessage(addr_of_mut!(MSG));
+                    DispatchMessageA(addr_of_mut!(MSG));
                     None
                 }
             },
@@ -375,7 +383,7 @@ pub fn event() -> Option<Event> {
 }
 
 pub fn event_blocking() -> Option<Event> {
-    let message_result = unsafe { GetMessageA(&mut MSG, 0, 0, 0) };
+    let message_result = unsafe { GetMessageA(addr_of_mut!(MSG), 0, 0, 0) };
 
     match message_result {
         -1 => {
@@ -386,8 +394,8 @@ pub fn event_blocking() -> Option<Event> {
         _ => {
             //Handle message here.
             unsafe {
-                TranslateMessage(&mut MSG);
-                DispatchMessageA(&mut MSG);
+                TranslateMessage(addr_of_mut!(MSG));
+                DispatchMessageA(addr_of_mut!(MSG));
             }
             None
         }
@@ -443,7 +451,7 @@ pub unsafe fn set_dark_mode(hwnd: isize) -> bool {
     let mut dark_mode: i32 = 1;
     let mut data = WINDOWCOMPOSITIONATTRIBDATA {
         attrib: WCA_USEDARKMODECOLORS,
-        data: &mut dark_mode as *mut _ as _,
+        data: &mut dark_mode as *mut i32 as _,
         size: 4,
     };
 
