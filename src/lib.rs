@@ -42,11 +42,45 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
+        Self {
+            left: x,
+            top: y,
+            right: width,
+            bottom: height,
+        }
+    }
     pub fn width(&self) -> i32 {
         self.right - self.left
     }
     pub fn height(&self) -> i32 {
         self.bottom - self.top
+    }
+    pub const fn area(&self) -> i32 {
+        self.right * self.bottom
+    }
+
+    pub const fn left(&self) -> i32 {
+        self.left
+    }
+
+    pub const fn right(&self) -> i32 {
+        self.left.saturating_add(self.right)
+    }
+
+    pub const fn top(&self) -> i32 {
+        self.top
+    }
+
+    pub const fn bottom(&self) -> i32 {
+        self.top.saturating_add(self.bottom)
+    }
+
+    pub fn intersects(&self, other: Rect) -> bool {
+        self.left < other.left + other.right
+            && self.left + self.right > other.left
+            && self.top < other.top + other.bottom
+            && self.top + self.bottom > other.top
     }
 }
 
@@ -232,7 +266,7 @@ pub enum Event {
     Right,
 
     //(0, 0) is top left of window.
-    Mouse(usize, usize),
+    Mouse(i32, i32),
 
     LeftMouseDown,
     MiddleMouseDown,
@@ -244,6 +278,14 @@ pub enum Event {
     ScrollDown,
 
     Unknown(u16),
+    LeftMouseDoubleClick,
+    RightMouseDoubleClick,
+    Mouse4Up,
+    Mouse5Up,
+    Mouse4Down,
+    Mouse5Down,
+    Mouse4DoubleClick,
+    Mouse5DoubleClick,
 }
 
 pub fn mouse_pos() -> (i32, i32) {
@@ -285,9 +327,8 @@ pub fn event() -> Option<Event> {
                 WM_MOUSEMOVE => {
                     let x = MSG.l_param & 0xFFFF;
                     let y = MSG.l_param >> 16 & 0xFFFF;
-                    Some(Event::Mouse(x as usize, y as usize))
+                    Some(Event::Mouse(x as i32, y as i32))
                 }
-                //TODO: Double clicks.
                 WM_MOUSEWHEEL => {
                     const WHEEL_DELTA: i16 = 120;
                     let value = (MSG.w_param >> 16) as i16;
@@ -300,6 +341,43 @@ pub fn event() -> Option<Event> {
                 }
                 WM_LBUTTONDOWN => Some(Event::LeftMouseDown),
                 WM_LBUTTONUP => Some(Event::LeftMouseUp),
+                WM_LBUTTONDBLCLK => Some(Event::LeftMouseDoubleClick),
+                WM_RBUTTONDOWN => Some(Event::RightMouseDown),
+                WM_RBUTTONUP => Some(Event::RightMouseUp),
+                WM_RBUTTONDBLCLK => Some(Event::RightMouseDoubleClick),
+                WM_XBUTTONDOWN => {
+                    //https://www.autohotkey.com/docs/v1/KeyList.htm#mouse-advanced
+                    //XButton1	4th mouse button. Typically performs the same function as Browser_Back.
+                    //XButton2	5th mouse button. Typically performs the same function as Browser_Forward.
+                    let button = MSG.w_param >> 16;
+                    if button == 1 {
+                        Some(Event::Mouse4Down)
+                    } else if button == 2 {
+                        Some(Event::Mouse5Down)
+                    } else {
+                        unreachable!()
+                    }
+                }
+                WM_XBUTTONUP => {
+                    let button = MSG.w_param >> 16;
+                    if button == 1 {
+                        Some(Event::Mouse4Up)
+                    } else if button == 2 {
+                        Some(Event::Mouse5Up)
+                    } else {
+                        unreachable!()
+                    }
+                }
+                WM_XBUTTONDBLCLK => {
+                    let button = MSG.w_param >> 16;
+                    if button == 1 {
+                        Some(Event::Mouse4DoubleClick)
+                    } else if button == 2 {
+                        Some(Event::Mouse5DoubleClick)
+                    } else {
+                        unreachable!()
+                    }
+                }
                 //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
                 WM_KEYDOWN => {
                     let vk = MSG.w_param as i32;

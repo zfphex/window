@@ -191,6 +191,9 @@ pub const VK_NONAME: i32 = 0xFC;
 pub const VK_PA1: i32 = 0xFD;
 pub const VK_OEM_CLEAR: i32 = 0xFE;
 
+// pub const MK_XBUTTON1: usize = 0x0020;
+// pub const MK_XBUTTON2: usize = 0x0040;
+
 ///////////////////////////////////////
 ///
 ///////////////////////////////////////
