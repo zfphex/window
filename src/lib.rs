@@ -50,10 +50,16 @@ impl Rect {
             bottom: height,
         }
     }
-    pub fn width(&self) -> i32 {
+    // pub const fn centered(&self, width: u16, height: u16) -> Rect {
+    //     let v = self.width() / 2;
+    //     let h = self.height() / 2;
+
+    //     todo!();
+    // }
+    pub const fn width(&self) -> i32 {
         self.right - self.left
     }
-    pub fn height(&self) -> i32 {
+    pub const fn height(&self) -> i32 {
         self.bottom - self.top
     }
     pub const fn area(&self) -> i32 {
@@ -76,7 +82,7 @@ impl Rect {
         self.top.saturating_add(self.bottom)
     }
 
-    pub fn intersects(&self, other: Rect) -> bool {
+    pub const fn intersects(&self, other: Rect) -> bool {
         self.left < other.left + other.right
             && self.left + self.right > other.left
             && self.top < other.top + other.bottom
@@ -243,8 +249,6 @@ pub enum Modifier {
 //     modifier: Modifier,
 // }
 
-const F24: i32 = VK_F1 + 23;
-
 #[derive(Debug, PartialEq)]
 pub enum Event {
     Quit,
@@ -314,6 +318,13 @@ fn modifiers() -> Modifiers {
     }
 }
 
+//Event handling should probably happen in the UI library.
+//It doesn't really make sense to return an event every time.
+//There will be a context which will hold the state every frame.
+//I think It would be nice to be able to use that context to store information.
+//For example, on a mouse press, `ctx.left_mouse.pressed = true`
+//Rather than return Some(Event::LeftMouseDown) and then having to set that later.
+//It just doesn't make any sense.
 pub fn event() -> Option<Event> {
     unsafe {
         if QUIT {
@@ -423,8 +434,9 @@ pub fn event() -> Option<Event> {
                         VK_OEM_COMMA => return Some(Event::Char(',')),
                         VK_OEM_PERIOD => return Some(Event::Char('.')),
                         VK_OEM_2 => return Some(Event::Char('/')),
-
-                        VK_F1..=F24 => return Some(Event::Function((vk - VK_F1 as i32 + 1) as u8)),
+                        VK_F1..=VK_F24 => {
+                            return Some(Event::Function((vk - VK_F1 as i32 + 1) as u8))
+                        }
                         //(A-Z) (0-9)
                         0x30..=0x39 | 0x41..=0x5A => {
                             let vk = vk as u8 as char;

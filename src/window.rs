@@ -45,7 +45,9 @@ impl Window {
         point
     }
 
-    pub fn fullscreen(&self) {}
+    pub fn fullscreen(&self) {
+        unsafe { ShowWindow(self.hwnd, SW_MAXIMIZE) };
+    }
 }
 
 unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
@@ -151,8 +153,6 @@ pub fn create_window(title: &str, width: i32, height: i32) -> Window {
             std::ptr::null(),
         )
     };
-
-    unsafe { ShowWindow(hwnd, SW_MAXIMIZE) };
 
     assert_ne!(hwnd, 0);
 
