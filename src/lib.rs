@@ -32,23 +32,32 @@ pub struct Point {
     pub y: i32,
 }
 
+//TODO: Orginally the RECT used left, top, right, bottom.
+//This new version may cause issues.
+//TODO: Watch this.
 #[repr(C)]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Rect {
-    pub left: i32,
-    pub top: i32,
-    pub right: i32,
-    pub bottom: i32,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl Rect {
-    pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
+    pub const fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
         Self {
-            left: x,
-            top: y,
-            right: width,
-            bottom: height,
+            x,
+            y,
+            width,
+            height,
         }
+    }
+    pub const fn right(&self) -> i32 {
+        self.x + self.width
+    }
+    pub const fn bottom(&self) -> i32 {
+        self.y + self.height
     }
     // pub const fn centered(&self, width: u16, height: u16) -> Rect {
     //     let v = self.width() / 2;
@@ -56,37 +65,23 @@ impl Rect {
 
     //     todo!();
     // }
-    pub const fn width(&self) -> i32 {
-        self.right - self.left
-    }
-    pub const fn height(&self) -> i32 {
-        self.bottom - self.top
-    }
     pub const fn area(&self) -> i32 {
-        self.right * self.bottom
+        self.width * self.height
     }
 
-    pub const fn left(&self) -> i32 {
-        self.left
-    }
+    // pub const fn intersects(&self, other: Rect) -> bool {
+    //     self.left < other.left + other.right
+    //         && self.left + self.right > other.left
+    //         && self.top < other.top + other.bottom
+    //         && self.top + self.bottom > other.top
+    // }
 
-    pub const fn right(&self) -> i32 {
-        self.left.saturating_add(self.right)
-    }
-
-    pub const fn top(&self) -> i32 {
-        self.top
-    }
-
-    pub const fn bottom(&self) -> i32 {
-        self.top.saturating_add(self.bottom)
-    }
-
+    //TODO: Write some tests.
     pub const fn intersects(&self, other: Rect) -> bool {
-        self.left < other.left + other.right
-            && self.left + self.right > other.left
-            && self.top < other.top + other.bottom
-            && self.top + self.bottom > other.top
+        self.x < other.x + other.right()
+            && self.x + self.right() > other.x
+            && self.y < other.y + other.bottom()
+            && self.y + self.bottom() > other.y
     }
 }
 
@@ -290,6 +285,7 @@ pub enum Event {
     Mouse5Down,
     Mouse4DoubleClick,
     Mouse5DoubleClick,
+    MiddleMouseDoubleClick,
 }
 
 pub fn mouse_pos() -> (i32, i32) {
@@ -307,7 +303,7 @@ pub struct Modifiers {
 }
 
 //https://github.com/makepad/makepad/blob/69bef6bab686284e1e3ab83ee803f29c5c9f40e5/platform/src/os/windows/win32_window.rs#L765
-fn modifiers() -> Modifiers {
+pub fn modifiers() -> Modifiers {
     unsafe {
         Modifiers {
             control: GetKeyState(VK_CONTROL) & 0x80 > 0,
@@ -356,6 +352,9 @@ pub fn event() -> Option<Event> {
                 WM_RBUTTONDOWN => Some(Event::RightMouseDown),
                 WM_RBUTTONUP => Some(Event::RightMouseUp),
                 WM_RBUTTONDBLCLK => Some(Event::RightMouseDoubleClick),
+                WM_MBUTTONDOWN => Some(Event::MiddleMouseDown),
+                WM_MBUTTONUP => Some(Event::MiddleMouseUp),
+                WM_MBUTTONDBLCLK => Some(Event::MiddleMouseDoubleClick),
                 WM_XBUTTONDOWN => {
                     //https://www.autohotkey.com/docs/v1/KeyList.htm#mouse-advanced
                     //XButton1	4th mouse button. Typically performs the same function as Browser_Back.

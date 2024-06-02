@@ -33,8 +33,8 @@ impl Window {
     pub fn outer_position(&self) -> Point {
         let area = self.area();
         Point {
-            x: area.left,
-            y: area.top,
+            x: area.x,
+            y: area.y,
         }
     }
 
@@ -100,10 +100,10 @@ const STYLE: u32 = CS_HREDRAW | CS_VREDRAW;
 
 pub fn adjust_window(width: i32, height: i32) -> Rect {
     let mut rect = Rect {
-        left: 0,
-        top: 0,
-        right: width,
-        bottom: height,
+        x: 0,
+        y: 0,
+        width,
+        height,
     };
     let result = unsafe { AdjustWindowRectEx(&mut rect as *mut Rect, OPTIONS, 0, 0) };
     if result == 0 {
@@ -144,8 +144,8 @@ pub fn create_window(title: &str, width: i32, height: i32) -> Window {
             CW_USEDEFAULT,
             //TODO:
             //Note: Width and height include the border.
-            rect.width(),
-            rect.height(),
+            rect.width,
+            rect.height,
             0,
             0,
             0,
