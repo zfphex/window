@@ -40,6 +40,23 @@ pub struct WinRect {
     pub right: i32,
     pub bottom: i32,
 }
+impl WinRect {
+    pub const fn width(&self) -> i32 {
+        self.right - self.left
+    }
+    pub const fn height(&self) -> i32 {
+        self.bottom - self.top
+    }
+
+    pub const fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
+        Self {
+            top: x,
+            left: y,
+            right: width,
+            bottom: height,
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
@@ -159,7 +176,12 @@ extern "system" {
     /// It is typically used in response to a WM_DESTROY message.
     pub fn PostQuitMessage(nExitCode: i32);
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
-    pub fn AdjustWindowRectEx(lpRect: *mut WinRect, dwStyle: u32, bMenu: i32, dwExStyle: u32) -> i32;
+    pub fn AdjustWindowRectEx(
+        lpRect: *mut WinRect,
+        dwStyle: u32,
+        bMenu: i32,
+        dwExStyle: u32,
+    ) -> i32;
     pub fn DestroyWindow(hWnd: isize) -> i32;
     pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     pub fn DispatchMessageA(lpMsg: *const MSG) -> isize;

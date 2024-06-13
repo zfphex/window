@@ -9,6 +9,9 @@ use crate::*;
 //     }
 // }
 
+//YEP
+static mut WINDOW_AREA: WinRect = WinRect::new(0, 0, 0, 0);
+
 pub struct Window {
     pub hwnd: isize,
 }
@@ -23,11 +26,26 @@ impl Window {
         unsafe { GetWindowLongPtrA(std::mem::transmute(self), GWLP_USERDATA) };
     }
 
+    //TODO: This is returning inaccurate results.
+    //WinRect {
+    //    top: 674,
+    //    left: 109,
+    //    right: 1313,
+    //    bottom: 725,
+    //}
+    //Should have been equivalent to:
+    //WinRect {
+    //    top: 26,
+    //    left: 26,
+    //    right: 665,
+    //    bottom: 642,
+    //}
     pub fn area(&self) -> WinRect {
-        let mut rect = WinRect::default();
+        // let mut rect = WinRect::default();
         //GetWindowRect is virtualized for DPI.
-        unsafe { GetWindowRect(self.hwnd, &mut rect) };
-        rect
+        // unsafe { GetWindowRect(self.hwnd, &mut rect) };
+        // rect
+        unsafe { WINDOW_AREA.clone() }
     }
 
     //TODO: Remove?
@@ -84,11 +102,31 @@ unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam
             //The BeginPaint function automatically validates the entire client area.
             return 0;
         }
+        WM_MOVE => {
+            let x = (MSG.l_param as u32) & 0xffff;
+            let y = ((MSG.l_param as u32) >> 16) & 0xffff;
+
+            let width = WINDOW_AREA.width();
+            let height = WINDOW_AREA.height();
+
+            WINDOW_AREA.left = x as i32;
+            WINDOW_AREA.top = y as i32;
+            WINDOW_AREA.right = x as i32 + width;
+            WINDOW_AREA.bottom = y as i32 + height;
+
+            return 0;
+        }
         WM_SIZE => {
+            //If the size never updates it can't crash!
+
+            //When resizing the window horizontally the height changes.
+            //This should not be possible?
+
             // let width = (MSG.l_param as u32) & 0xffff;
             // let height = ((MSG.l_param as u32) >> 16) & 0xffff;
             // println!("width: {}, height: {}", width, height);
             // let _ = adjust_window(width as i32, height as i32);
+
             return 0;
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
@@ -118,13 +156,17 @@ pub fn create_window(title: &str, width: i32, height: i32) -> Window {
 
         let _ = RegisterClassA(&wnd_class);
 
-        let mut rect = WinRect {
-            top: 0,
-            left: 0,
-            right: width,
-            bottom: height,
-        };
-        let result = AdjustWindowRectEx(&mut rect as *mut WinRect, OPTIONS, 0, 0);
+        // let mut rect = WinRect {
+        //     top: 0,
+        //     left: 0,
+        //     right: width,
+        //     bottom: height,
+        // };
+        // let result = AdjustWindowRectEx(&mut rect as *mut WinRect, OPTIONS, 0, 0);
+        WINDOW_AREA.right = width;
+        WINDOW_AREA.bottom = height;
+        let result = AdjustWindowRectEx(addr_of_mut!(WINDOW_AREA), OPTIONS, 0, 0);
+
         if result == 0 {
             let last_error = GetLastError();
             panic!(
@@ -142,8 +184,10 @@ pub fn create_window(title: &str, width: i32, height: i32) -> Window {
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             //NOTE: Width and height include the border.
-            rect.right - rect.left,
-            rect.bottom - rect.top,
+            // rect.width(),
+            // rect.heigth(),
+            WINDOW_AREA.width(),
+            WINDOW_AREA.height(),
             0,
             0,
             0,
