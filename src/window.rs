@@ -1,4 +1,5 @@
 use crate::*;
+
 // pub fn is_maximized(window: HWND) -> bool {
 //     unsafe {
 //         let mut placement: WINDOWPLACEMENT = mem::zeroed();
@@ -22,8 +23,8 @@ impl Window {
         unsafe { GetWindowLongPtrA(std::mem::transmute(self), GWLP_USERDATA) };
     }
 
-    pub fn area(&self) -> Rect {
-        let mut rect = Rect::default();
+    pub fn area(&self) -> WinRect {
+        let mut rect = WinRect::default();
         //GetWindowRect is virtualized for DPI.
         unsafe { GetWindowRect(self.hwnd, &mut rect) };
         rect
@@ -33,8 +34,8 @@ impl Window {
     pub fn outer_position(&self) -> Point {
         let area = self.area();
         Point {
-            x: area.x,
-            y: area.y,
+            x: area.left,
+            y: area.top,
         }
     }
 
@@ -84,9 +85,10 @@ unsafe extern "system" fn test_proc(hwnd: isize, msg: u32, wparam: usize, lparam
             return 0;
         }
         WM_SIZE => {
-            let width = (MSG.l_param as u32) & 0xffff;
-            let height = ((MSG.l_param as u32) >> 16) & 0xffff;
-            let _ = adjust_window(width as i32, height as i32);
+            // let width = (MSG.l_param as u32) & 0xffff;
+            // let height = ((MSG.l_param as u32) >> 16) & 0xffff;
+            // println!("width: {}, height: {}", width, height);
+            // let _ = adjust_window(width as i32, height as i32);
             return 0;
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
@@ -98,63 +100,59 @@ const OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 //https://devblogs.microsoft.com/oldnewthing/20060601-06/?p=31003
 const STYLE: u32 = CS_HREDRAW | CS_VREDRAW;
 
-pub fn adjust_window(width: i32, height: i32) -> Rect {
-    let mut rect = Rect {
-        x: 0,
-        y: 0,
-        width,
-        height,
-    };
-    let result = unsafe { AdjustWindowRectEx(&mut rect as *mut Rect, OPTIONS, 0, 0) };
-    if result == 0 {
-        let last_error = unsafe { GetLastError() };
-        panic!(
-            "Error with `AdjustWindowRectEx`, error code: {}",
-            last_error
-        );
-    }
-    rect
-}
-
 //TODO: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
 pub fn create_window(title: &str, width: i32, height: i32) -> Window {
-    //Title must be null terminated.
-    let title = std::ffi::CString::new(title).unwrap();
-    let wnd_class = WNDCLASSA {
-        // wnd_proc: Some(DefWindowProcA),
-        wnd_proc: Some(test_proc),
-        class_name: title.as_ptr() as *const u8,
-        style: STYLE,
-        background: 0,
-        //Prevent cursor from changing when loading.
-        cursor: unsafe { LoadCursorW(std::ptr::null_mut(), IDC_ARROW) as isize },
-        ..Default::default()
-    };
+    unsafe {
+        //Title must be null terminated.
+        let title = std::ffi::CString::new(title).unwrap();
+        let wnd_class = WNDCLASSA {
+            // wnd_proc: Some(DefWindowProcA),
+            wnd_proc: Some(test_proc),
+            class_name: title.as_ptr() as *const u8,
+            style: STYLE,
+            background: 0,
+            //Prevent cursor from changing when loading.
+            cursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW) as isize,
+            ..Default::default()
+        };
 
-    let _result = unsafe { RegisterClassA(&wnd_class) };
-    let rect = adjust_window(width, height);
-    // let h_instance = get_hinstance();
-    let hwnd = unsafe {
-        CreateWindowExA(
+        let _ = RegisterClassA(&wnd_class);
+
+        let mut rect = WinRect {
+            top: 0,
+            left: 0,
+            right: width,
+            bottom: height,
+        };
+        let result = AdjustWindowRectEx(&mut rect as *mut WinRect, OPTIONS, 0, 0);
+        if result == 0 {
+            let last_error = GetLastError();
+            panic!(
+                "Error with `AdjustWindowRectEx`, error code: {}",
+                last_error
+            );
+        }
+
+        // let h_instance = get_hinstance();
+        let hwnd = CreateWindowExA(
             0,
             title.as_ptr() as *const u8,
             title.as_ptr() as *const u8,
             OPTIONS,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            //TODO:
-            //Note: Width and height include the border.
-            rect.width,
-            rect.height,
+            //NOTE: Width and height include the border.
+            rect.right - rect.left,
+            rect.bottom - rect.top,
             0,
             0,
             0,
             // h_instance,
             std::ptr::null(),
-        )
-    };
+        );
 
-    assert_ne!(hwnd, 0);
+        assert_ne!(hwnd, 0);
 
-    Window { hwnd }
+        Window { hwnd }
+    }
 }

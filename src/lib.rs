@@ -32,57 +32,13 @@ pub struct Point {
     pub y: i32,
 }
 
-//TODO: Orginally the RECT used left, top, right, bottom.
-//This new version may cause issues.
-//TODO: Watch this.
 #[repr(C)]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Rect {
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
-}
-
-impl Rect {
-    pub const fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-        }
-    }
-    pub const fn right(&self) -> i32 {
-        self.x + self.width
-    }
-    pub const fn bottom(&self) -> i32 {
-        self.y + self.height
-    }
-    // pub const fn centered(&self, width: u16, height: u16) -> Rect {
-    //     let v = self.width() / 2;
-    //     let h = self.height() / 2;
-
-    //     todo!();
-    // }
-    pub const fn area(&self) -> i32 {
-        self.width * self.height
-    }
-
-    // pub const fn intersects(&self, other: Rect) -> bool {
-    //     self.left < other.left + other.right
-    //         && self.left + self.right > other.left
-    //         && self.top < other.top + other.bottom
-    //         && self.top + self.bottom > other.top
-    // }
-
-    //TODO: Write some tests.
-    pub const fn intersects(&self, other: Rect) -> bool {
-        self.x < other.x + other.right()
-            && self.x + self.right() > other.x
-            && self.y < other.y + other.bottom()
-            && self.y + self.bottom() > other.y
-    }
+pub struct WinRect {
+    pub top: i32,
+    pub left: i32,
+    pub right: i32,
+    pub bottom: i32,
 }
 
 #[repr(C)]
@@ -100,8 +56,8 @@ pub struct MSG {
 #[derive(Debug, Default, Clone)]
 pub struct WindowInfo {
     pub size: u32,
-    pub window: Rect,
-    pub client: Rect,
+    pub window: WinRect,
+    pub client: WinRect,
     pub style: u32,
     pub ex_style: u32,
     pub window_status: u32,
@@ -203,7 +159,7 @@ extern "system" {
     /// It is typically used in response to a WM_DESTROY message.
     pub fn PostQuitMessage(nExitCode: i32);
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
-    pub fn AdjustWindowRectEx(lpRect: *mut Rect, dwStyle: u32, bMenu: i32, dwExStyle: u32) -> i32;
+    pub fn AdjustWindowRectEx(lpRect: *mut WinRect, dwStyle: u32, bMenu: i32, dwExStyle: u32) -> i32;
     pub fn DestroyWindow(hWnd: isize) -> i32;
     pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     pub fn DispatchMessageA(lpMsg: *const MSG) -> isize;
@@ -214,8 +170,8 @@ extern "system" {
     pub fn GetProcAddress(hModule: *mut VOID, lpProcName: *const i8) -> *mut VOID;
     pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID;
     pub fn GetWindowLongPtrA(hwnd: isize, nIndex: i32) -> isize;
-    pub fn ValidateRect(hwnd: isize, lpRect: *const Rect) -> i32;
-    pub fn GetWindowRect(hwnd: isize, lpRect: *mut Rect) -> i32;
+    pub fn ValidateRect(hwnd: isize, lpRect: *const WinRect) -> i32;
+    pub fn GetWindowRect(hwnd: isize, lpRect: *mut WinRect) -> i32;
     pub fn GetWindowInfo(hwnd: isize, pwi: *mut WindowInfo) -> i32;
     pub fn SetWindowLongA(hWnd: HWND, nIndex: i32, dwNewLong: LONG) -> LONG;
     pub fn GetWindowLongA(hWnd: HWND, nIndex: i32) -> LONG;
