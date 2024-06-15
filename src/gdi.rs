@@ -9,6 +9,7 @@ pub const TRANSPARENT: i32 = 1;
 pub const RGN_AND: i32 = 1;
 
 #[link(name = "Gdi32")]
+#[allow(dead_code)]
 extern "system" {
     pub fn StretchDIBits(
         hdc: *mut VOID,
@@ -47,7 +48,7 @@ extern "system" {
     pub fn CreateCompatibleDC(hdc: *mut VOID) -> *mut VOID;
     pub fn DeleteDC(hdc: *mut VOID) -> i32;
     pub fn SelectObject(hdc: *mut VOID, h: *mut VOID) -> *mut VOID;
-    pub fn SetRect(lprc: *mut WinRect, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
+    pub fn SetRect(lprc: *mut RECT, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
     pub fn BeginPath(hdc: *mut VOID) -> i32;
     pub fn EndPath(hdc: *mut VOID) -> i32;
     pub fn SelectClipPath(hdc: *mut VOID, mode: i32) -> BOOL;

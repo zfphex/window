@@ -1,4 +1,4 @@
-#![allow(non_snake_case)]
+#![allow(non_snake_case, static_mut_refs)]
 mod constants;
 mod gdi;
 mod window;
@@ -34,13 +34,14 @@ pub struct Point {
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct WinRect {
-    pub top: i32,
+pub struct RECT {
     pub left: i32,
+    pub top: i32,
     pub right: i32,
     pub bottom: i32,
 }
-impl WinRect {
+
+impl RECT {
     pub const fn width(&self) -> i32 {
         self.right - self.left
     }
@@ -50,8 +51,8 @@ impl WinRect {
 
     pub const fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
         Self {
-            top: x,
-            left: y,
+            left: x,
+            top: y,
             right: width,
             bottom: height,
         }
@@ -73,8 +74,8 @@ pub struct MSG {
 #[derive(Debug, Default, Clone)]
 pub struct WindowInfo {
     pub size: u32,
-    pub window: WinRect,
-    pub client: WinRect,
+    pub window: RECT,
+    pub client: RECT,
     pub style: u32,
     pub ex_style: u32,
     pub window_status: u32,
@@ -166,6 +167,7 @@ extern "system" {
         wmsgfiltermax: u32,
         wremovemsg: u32,
     ) -> i32;
+    ///GetMessage blocks until a message is posted before returning.
     pub fn GetMessageA(
         lpMsg: *const MSG,
         hWnd: isize,
@@ -176,34 +178,42 @@ extern "system" {
     /// It is typically used in response to a WM_DESTROY message.
     pub fn PostQuitMessage(nExitCode: i32);
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
-    pub fn AdjustWindowRectEx(
-        lpRect: *mut WinRect,
-        dwStyle: u32,
-        bMenu: i32,
-        dwExStyle: u32,
-    ) -> i32;
-    pub fn DestroyWindow(hWnd: isize) -> i32;
-    pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     pub fn DispatchMessageA(lpMsg: *const MSG) -> isize;
     pub fn TranslateMessage(lpMsg: *const MSG) -> i32;
     pub fn GetLastError() -> u32;
-    pub fn GetWindow(hwnd: isize, uCmd: u32) -> isize;
-    pub fn GetForegroundWindow() -> isize;
     pub fn GetProcAddress(hModule: *mut VOID, lpProcName: *const i8) -> *mut VOID;
     pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID;
-    pub fn GetWindowLongPtrA(hwnd: isize, nIndex: i32) -> isize;
-    pub fn ValidateRect(hwnd: isize, lpRect: *const WinRect) -> i32;
-    pub fn GetWindowRect(hwnd: isize, lpRect: *mut WinRect) -> i32;
-    pub fn GetWindowInfo(hwnd: isize, pwi: *mut WindowInfo) -> i32;
-    pub fn SetWindowLongA(hWnd: HWND, nIndex: i32, dwNewLong: LONG) -> LONG;
-    pub fn GetWindowLongA(hWnd: HWND, nIndex: i32) -> LONG;
-    pub fn ClientToScreen(hWnd: HWND, lpPoint: *mut Point) -> BOOL;
     pub fn GetDC(hwnd: isize) -> *mut VOID;
     pub fn LoadCursorW(hInstance: *mut VOID, lpCursorName: *const u16) -> *mut VOID;
-    pub fn ShowWindow(hWnd: HWND, nCmdShow: i32) -> BOOL;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
     pub fn GetKeyState(nVirtKey: i32) -> i16;
     pub fn GetCursorPos(lpPoint: *mut Point) -> i32;
+
+    //Window Functions
+    pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
+    pub fn GetWindow(hwnd: isize, uCmd: u32) -> isize;
+    pub fn DestroyWindow(hwnd: isize) -> i32;
+    pub fn GetForegroundWindow() -> isize;
+    pub fn GetWindowLongPtrA(hwnd: isize, nIndex: i32) -> isize;
+    pub fn SetWindowLongA(hwnd: isize, nIndex: i32, dwNewLong: LONG) -> LONG;
+    pub fn GetWindowLongA(hwnd: isize, nIndex: i32) -> LONG;
+    pub fn ShowWindow(hwnd: isize, nCmdShow: i32) -> BOOL;
+    pub fn GetWindowInfo(hwnd: isize, pwi: *mut WindowInfo) -> i32;
+    ///Calculates the required size of the window rectangle, based on the desired size of the client rectangle. The window rectangle can then be passed to the CreateWindowEx function to create a window whose client area is the desired size.
+    pub fn AdjustWindowRectEx(lpRect: *mut RECT, dwStyle: u32, bMenu: i32, dwExStyle: u32) -> i32;
+    pub fn GetDesktopWindow() -> isize;
+
+    ///Retrieves the screen coordinates of the specified window.
+    pub fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
+    ///Retrieves the coordinates of a window's client area.
+    pub fn GetClientRect(hwnd: isize, lpRect: *mut RECT) -> i32;
+    pub fn ClientToScreen(hwnd: HWND, lpPoint: *mut Point) -> BOOL;
+    pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
+
+    pub fn GetSystemMetricsForDpi(nIndex: i32, dpi: u32) -> i32;
+
+    //TODO: Remove
+    // pub fn SetRect(lprc: *mut WinRect, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
 }
 
 #[derive(Debug, PartialEq)]
@@ -264,6 +274,7 @@ pub enum Event {
     Mouse4DoubleClick,
     Mouse5DoubleClick,
     MiddleMouseDoubleClick,
+    Move,
 }
 
 pub fn mouse_pos() -> (i32, i32) {
@@ -292,6 +303,90 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
+unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
+    //TODO: Handle dragging.
+    //https://github.com/rust-windowing/winit/blob/7bed5eecfdcbde16e5619fd137f0229e8e7e8ed4/src/platform_impl/windows/window.rs#L474C21-L474C21
+
+    match msg {
+        WM_DESTROY | WM_CLOSE => {
+            QUIT = true;
+            // PostQuitMessage(0);
+            return 0;
+        }
+        // WM_CLOSE => {
+        // DestroyWindow(hwnd);
+        // }
+        WM_CREATE => {
+            if !set_dark_mode(hwnd) {
+                println!("Failed to set dark mode!");
+            }
+            return 0;
+        }
+        WM_ERASEBKGND => {
+            return 1;
+        }
+        WM_PAINT => {
+            //The BeginPaint function automatically validates the entire client area.
+            return 0;
+        }
+        WM_MOVE => {
+            return 0;
+        }
+        // WM_MOVE => {
+        //     let x = (MSG.l_param as u32) & 0xffff;
+        //     let y = ((MSG.l_param as u32) >> 16) & 0xffff;
+
+        //     let width = WINDOW_AREA.width();
+        //     let height = WINDOW_AREA.height();
+
+        //     WINDOW_AREA.left = x as i32;
+        //     WINDOW_AREA.top = y as i32;
+        //     WINDOW_AREA.right = x as i32 + width;
+        //     WINDOW_AREA.bottom = y as i32 + height;
+
+        //     return 0;
+        // }
+        //https://billthefarmer.github.io/blog/post/handling-resizing-in-windows/
+        //https://github.com/not-fl3/miniquad/blob/f6780f19d3592077019872850d00e5eb9e92a22d/src/native/windows.rs#L214
+        // WM_SIZE => {
+        //     //When resizing the window horizontally the height changes.
+        //     //This should not be possible?
+
+        //     //TODO: These must be totally wrong.
+        //     // let width = (MSG.l_param as u32) & 0xffff;
+        //     // let height = ((MSG.l_param as u32) >> 16) & 0xffff;
+
+        //     let mut rect = WinRect::default();
+        //     GetClientRect(hwnd, &mut rect);
+
+        //     let mut top_left = Point {
+        //         x: rect.left,
+        //         y: rect.top,
+        //     };
+        //     ClientToScreen(hwnd, &mut top_left);
+
+        //     let mut bottom_right = Point {
+        //         x: rect.right,
+        //         y: rect.bottom,
+        //     };
+        //     ClientToScreen(hwnd, &mut bottom_right);
+
+        //     SetRect(
+        //         &mut rect,
+        //         top_left.x,
+        //         top_left.y,
+        //         bottom_right.x,
+        //         bottom_right.y,
+        //     );
+
+        //     WINDOW_AREA = rect;
+
+        //     return 0;
+        // }
+        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
+    }
+}
+
 //Event handling should probably happen in the UI library.
 //It doesn't really make sense to return an event every time.
 //There will be a context which will hold the state every frame.
@@ -299,16 +394,19 @@ pub fn modifiers() -> Modifiers {
 //For example, on a mouse press, `ctx.left_mouse.pressed = true`
 //Rather than return Some(Event::LeftMouseDown) and then having to set that later.
 //It just doesn't make any sense.
-pub fn event() -> Option<Event> {
+pub fn event(hwnd: isize) -> Option<Event> {
     unsafe {
         if QUIT {
             return Some(Event::Quit);
         }
 
-        let result = PeekMessageA(addr_of_mut!(MSG), 0, 0, 0, PM_REMOVE);
+        //Note that some messages like WM_MOVE and WM_SIZE will not be included here.
+        //wndproc must be used for window related messages.
+        let result = PeekMessageA(addr_of_mut!(MSG), hwnd, 0, 0, PM_REMOVE);
         match result {
             0 => None,
             _ => match MSG.message {
+                WM_MOVE => Some(Event::Move),
                 WM_MOUSEMOVE => {
                     let x = MSG.l_param & 0xFFFF;
                     let y = MSG.l_param >> 16 & 0xFFFF;
