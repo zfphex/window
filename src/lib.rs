@@ -210,6 +210,13 @@ extern "system" {
     pub fn ClientToScreen(hwnd: HWND, lpPoint: *mut Point) -> BOOL;
     pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
 
+    pub fn DwmGetWindowAttribute(
+        hWnd: HWND,
+        dwAttribute: DWORD,
+        pvAttribute: *mut VOID,
+        cbAttribute: DWORD,
+    ) -> i32;
+
     pub fn GetSystemMetricsForDpi(nIndex: i32, dpi: u32) -> i32;
 
     //TODO: Remove
@@ -303,90 +310,6 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
-unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
-    //TODO: Handle dragging.
-    //https://github.com/rust-windowing/winit/blob/7bed5eecfdcbde16e5619fd137f0229e8e7e8ed4/src/platform_impl/windows/window.rs#L474C21-L474C21
-
-    match msg {
-        WM_DESTROY | WM_CLOSE => {
-            QUIT = true;
-            // PostQuitMessage(0);
-            return 0;
-        }
-        // WM_CLOSE => {
-        // DestroyWindow(hwnd);
-        // }
-        WM_CREATE => {
-            if !set_dark_mode(hwnd) {
-                println!("Failed to set dark mode!");
-            }
-            return 0;
-        }
-        WM_ERASEBKGND => {
-            return 1;
-        }
-        WM_PAINT => {
-            //The BeginPaint function automatically validates the entire client area.
-            return 0;
-        }
-        WM_MOVE => {
-            return 0;
-        }
-        // WM_MOVE => {
-        //     let x = (MSG.l_param as u32) & 0xffff;
-        //     let y = ((MSG.l_param as u32) >> 16) & 0xffff;
-
-        //     let width = WINDOW_AREA.width();
-        //     let height = WINDOW_AREA.height();
-
-        //     WINDOW_AREA.left = x as i32;
-        //     WINDOW_AREA.top = y as i32;
-        //     WINDOW_AREA.right = x as i32 + width;
-        //     WINDOW_AREA.bottom = y as i32 + height;
-
-        //     return 0;
-        // }
-        //https://billthefarmer.github.io/blog/post/handling-resizing-in-windows/
-        //https://github.com/not-fl3/miniquad/blob/f6780f19d3592077019872850d00e5eb9e92a22d/src/native/windows.rs#L214
-        // WM_SIZE => {
-        //     //When resizing the window horizontally the height changes.
-        //     //This should not be possible?
-
-        //     //TODO: These must be totally wrong.
-        //     // let width = (MSG.l_param as u32) & 0xffff;
-        //     // let height = ((MSG.l_param as u32) >> 16) & 0xffff;
-
-        //     let mut rect = WinRect::default();
-        //     GetClientRect(hwnd, &mut rect);
-
-        //     let mut top_left = Point {
-        //         x: rect.left,
-        //         y: rect.top,
-        //     };
-        //     ClientToScreen(hwnd, &mut top_left);
-
-        //     let mut bottom_right = Point {
-        //         x: rect.right,
-        //         y: rect.bottom,
-        //     };
-        //     ClientToScreen(hwnd, &mut bottom_right);
-
-        //     SetRect(
-        //         &mut rect,
-        //         top_left.x,
-        //         top_left.y,
-        //         bottom_right.x,
-        //         bottom_right.y,
-        //     );
-
-        //     WINDOW_AREA = rect;
-
-        //     return 0;
-        // }
-        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
-    }
-}
-
 //Event handling should probably happen in the UI library.
 //It doesn't really make sense to return an event every time.
 //There will be a context which will hold the state every frame.
@@ -403,6 +326,10 @@ pub fn event(hwnd: isize) -> Option<Event> {
         //Note that some messages like WM_MOVE and WM_SIZE will not be included here.
         //wndproc must be used for window related messages.
         let result = PeekMessageA(addr_of_mut!(MSG), hwnd, 0, 0, PM_REMOVE);
+
+        //Mouse position.
+        // let (x, y) = (MSG.pt.x, MSG.pt.y);
+
         match result {
             0 => None,
             _ => match MSG.message {

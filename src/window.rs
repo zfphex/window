@@ -9,6 +9,11 @@ use crate::*;
 //     }
 // }
 
+///To get the window bounds excluding the drop shadow, use DwmGetWindowAttribute, specifying DWMWA_EXTENDED_FRAME_BOUNDS. Note that unlike the Window Rect, the DWM Extended Frame Bounds are not adjusted for DPI. Getting the extended frame bounds can only be done after the window has been shown at least once.
+pub fn screen_area_no_shadow(hwnd: isize) -> RECT {
+    todo!();
+}
+
 ///WinRect coordiantes can be negative.
 pub fn screen_area(hwnd: isize) -> RECT {
     let mut rect = RECT::default();
@@ -38,67 +43,127 @@ pub static mut WINDOW_AREA: RECT = RECT::new(0, 0, 0, 0);
 
 pub struct Window {
     pub hwnd: isize,
+    pub context: *mut VOID,
 }
 
-//TODO: https://github.com/makepad/makepad/blob/master/libs/windows-core/src/hresult.rs#L29
 impl Window {
-    pub fn get_long_ptr(&self) -> isize {
-        unsafe { GetWindowLongPtrA(self.hwnd, GWLP_USERDATA) }
+    //REMOVE
+
+    // pub fn get_long_ptr(&self) -> isize {
+    //     unsafe { GetWindowLongPtrA(self.hwnd, GWLP_USERDATA) }
+    // }
+    // pub fn set_long_ptr(&self) {
+    //     unsafe { GetWindowLongPtrA(std::mem::transmute(self), GWLP_USERDATA) };
+    // }
+
+    pub fn client_area(&self) -> RECT {
+        client_area(self.hwnd)
     }
 
-    pub fn set_long_ptr(&self) {
-        unsafe { GetWindowLongPtrA(std::mem::transmute(self), GWLP_USERDATA) };
+    pub fn screen_area(&self) -> RECT {
+        screen_area(self.hwnd)
     }
 
-    //TODO: This is returning inaccurate results.
-    //WinRect {
-    //    top: 674,
-    //    left: 109,
-    //    right: 1313,
-    //    bottom: 725,
-    //}
-    //Should have been equivalent to:
-    //WinRect {
-    //    top: 26,
-    //    left: 26,
-    //    right: 665,
-    //    bottom: 642,
-    //}
-    pub fn area(&self) -> &RECT {
-        // let mut rect = WinRect::default();
-        //GetWindowRect is virtualized for DPI.
-        // unsafe { GetWindowRect(self.hwnd, &mut rect) };
-        // rect
-        unsafe { &WINDOW_AREA }
-    }
-
-    //TODO: Remove?
-    pub fn outer_position(&self) -> Point {
-        let area = self.area();
-        Point {
-            x: area.left,
-            y: area.top,
-        }
-    }
-
-    pub fn inner_position(&self) -> Point {
-        let mut point = Point::default();
-        let result = unsafe { ClientToScreen(self.hwnd, &mut point) };
-        assert_ne!(result, 0);
-        point
-    }
-
+    //TODO: Swap between fullscreen and windowed.
+    //https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
     pub fn fullscreen(&self) {
         unsafe { ShowWindow(self.hwnd, SW_MAXIMIZE) };
     }
 }
 
-//TODO: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
+    //TODO: Handle dragging.
+    //https://github.com/rust-windowing/winit/blob/7bed5eecfdcbde16e5619fd137f0229e8e7e8ed4/src/platform_impl/windows/window.rs#L474C21-L474C21
+
+    match msg {
+        WM_DESTROY | WM_CLOSE => {
+            QUIT = true;
+            //TODO: Check if this closes the window faster.
+            //I think windows cleans up the window when the application is closed.
+            //So I don't really care.
+            // DestroyWindow(hwnd);
+            // PostQuitMessage(0);
+            return 0;
+        }
+        WM_CREATE => {
+            if !set_dark_mode(hwnd) {
+                println!("Failed to set dark mode!");
+            }
+            return 0;
+        }
+        WM_ERASEBKGND => {
+            return 1;
+        }
+        WM_PAINT => {
+            //The BeginPaint function automatically validates the entire client area.
+            return 0;
+        }
+        WM_MOVE => {
+            return 0;
+        }
+        // WM_MOVE => {
+        //     let x = (MSG.l_param as u32) & 0xffff;
+        //     let y = ((MSG.l_param as u32) >> 16) & 0xffff;
+
+        //     let width = WINDOW_AREA.width();
+        //     let height = WINDOW_AREA.height();
+
+        //     WINDOW_AREA.left = x as i32;
+        //     WINDOW_AREA.top = y as i32;
+        //     WINDOW_AREA.right = x as i32 + width;
+        //     WINDOW_AREA.bottom = y as i32 + height;
+
+        //     return 0;
+        // }
+        //https://billthefarmer.github.io/blog/post/handling-resizing-in-windows/
+        //https://github.com/not-fl3/miniquad/blob/f6780f19d3592077019872850d00e5eb9e92a22d/src/native/windows.rs#L214
+        // WM_SIZE => {
+        //     //When resizing the window horizontally the height changes.
+        //     //This should not be possible?
+
+        //     //TODO: These must be totally wrong.
+        //     // let width = (MSG.l_param as u32) & 0xffff;
+        //     // let height = ((MSG.l_param as u32) >> 16) & 0xffff;
+
+        //     let mut rect = WinRect::default();
+        //     GetClientRect(hwnd, &mut rect);
+
+        //     let mut top_left = Point {
+        //         x: rect.left,
+        //         y: rect.top,
+        //     };
+        //     ClientToScreen(hwnd, &mut top_left);
+
+        //     let mut bottom_right = Point {
+        //         x: rect.right,
+        //         y: rect.bottom,
+        //     };
+        //     ClientToScreen(hwnd, &mut bottom_right);
+
+        //     SetRect(
+        //         &mut rect,
+        //         top_left.x,
+        //         top_left.y,
+        //         bottom_right.x,
+        //         bottom_right.y,
+        //     );
+
+        //     WINDOW_AREA = rect;
+
+        //     return 0;
+        // }
+        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
+    }
+}
+
 pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Window {
-    const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
-    //Redraw the window on veritcal and horizontal resize.
+    //CS_HREDRAW AND CS_VREDRAW ARE FOR WM_PAINT I THINK?
+    //We don't need them.
+    //const WINDOW_STYLE: u32 = CS_HREDRAW | CS_VREDRAW;
+    //I don't think CS_OWNDC is needed either.
     //https://devblogs.microsoft.com/oldnewthing/20060601-06/?p=31003
-    const WINDOW_STYLE: u32 = CS_HREDRAW | CS_VREDRAW;
+    const WINDOW_STYLE: u32 = 0;
+    const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
     unsafe {
         //Title must be null terminated.
@@ -126,9 +191,12 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
         //Which means that it will set the window size including the title bar and borders etc.
         //We must convert the requested client coordinates to screen coordinates.
 
-        let mut rect = RECT {
-            left: -8,
-            top: 0,
+        //TODO: What is this value at different DPI's?
+        const WINDOW_PADDING_96_DPI: i32 = 7;
+
+        let rect = RECT {
+            left: x - WINDOW_PADDING_96_DPI,
+            top: y,
             right: x + width,
             bottom: y + height,
         };
@@ -165,10 +233,8 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
 
         assert_ne!(hwnd, 0);
 
-        let screen = screen_area(hwnd);
-        let client = client_area(hwnd);
-        dbg!(screen, client);
+        let context = GetDC(hwnd);
 
-        Window { hwnd }
+        Window { hwnd, context }
     }
 }
