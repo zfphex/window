@@ -2,7 +2,7 @@ use window::*;
 
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {
-    let window = create_window("Window", 0, 0, 600, 400);
+    let mut window = create_window("Window", 0, 0, 600, 400);
 
     let context = unsafe { GetDC(window.hwnd) };
     let mut area = window.client_area();
@@ -62,10 +62,15 @@ fn main() {
         //     client.width(),
         //     client.height()
         // );
-        match event(window.hwnd) {
-            // Some(Event::Mouse(x, y)) => println!("{} {}", x, y),
+        println!("{:?}", window.screen_mouse_pos);
+        match window.event(None) {
             Some(Event::Quit) => break,
             _ => {}
         }
+        // match event(None) {
+        //     Some(Event::Mouse(x, y)) => println!("{} {}", x, y),
+        //     Some(Event::Quit) => break,
+        //     _ => {}
+        // }
     }
 }

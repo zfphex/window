@@ -183,6 +183,7 @@ extern "system" {
     pub fn GetLastError() -> u32;
     pub fn GetProcAddress(hModule: *mut VOID, lpProcName: *const i8) -> *mut VOID;
     pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID;
+    ///The GetDC function retrieves a handle to a device context (DC) for the client area of a specified window or for the entire screen.
     pub fn GetDC(hwnd: isize) -> *mut VOID;
     pub fn LoadCursorW(hInstance: *mut VOID, lpCursorName: *const u16) -> *mut VOID;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
@@ -317,7 +318,7 @@ pub fn modifiers() -> Modifiers {
 //For example, on a mouse press, `ctx.left_mouse.pressed = true`
 //Rather than return Some(Event::LeftMouseDown) and then having to set that later.
 //It just doesn't make any sense.
-pub fn event(hwnd: isize) -> Option<Event> {
+pub fn event(hwnd: Option<isize>) -> Option<Event> {
     unsafe {
         if QUIT {
             return Some(Event::Quit);
@@ -325,6 +326,7 @@ pub fn event(hwnd: isize) -> Option<Event> {
 
         //Note that some messages like WM_MOVE and WM_SIZE will not be included here.
         //wndproc must be used for window related messages.
+        let hwnd = hwnd.unwrap_or_default();
         let result = PeekMessageA(addr_of_mut!(MSG), hwnd, 0, 0, PM_REMOVE);
 
         //Mouse position.
