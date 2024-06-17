@@ -1,62 +1,23 @@
+use crossbeam_queue::SegQueue;
+
 use crate::*;
 
-// pub fn is_maximized(window: HWND) -> bool {
-//     unsafe {
-//         let mut placement: WINDOWPLACEMENT = mem::zeroed();
-//         placement.length = mem::size_of::<WINDOWPLACEMENT>() as u32;
-//         GetWindowPlacement(window, &mut placement);
-//         placement.showCmd == SW_MAXIMIZE
-//     }
-// }
-
-///To get the window bounds excluding the drop shadow, use DwmGetWindowAttribute, specifying DWMWA_EXTENDED_FRAME_BOUNDS. Note that unlike the Window Rect, the DWM Extended Frame Bounds are not adjusted for DPI. Getting the extended frame bounds can only be done after the window has been shown at least once.
-pub fn screen_area_no_shadow(_hwnd: isize) -> RECT {
-    todo!();
-}
-
-///WinRect coordiantes can be negative.
-pub fn screen_area(hwnd: isize) -> RECT {
-    let mut rect = RECT::default();
-    unsafe { GetWindowRect(hwnd, &mut rect) };
-    rect
-}
-
-///WinRect coordiantes *should* never be negative.
-pub fn client_area(hwnd: isize) -> RECT {
-    let mut rect = RECT::default();
-    unsafe { GetClientRect(hwnd, &mut rect) };
-    rect
-}
-
-pub fn desktop_area() -> RECT {
-    unsafe { client_area(GetDesktopWindow()) }
-}
-
-// pub fn screen_to_client(hwnd: isize) -> WinRect {
-//     // let mut rect = WinRect::default();
-//     // unsafe { GetWindowRect(hwnd, &mut rect) };
-//     // rect
-// }
-
-//YEP
-pub static mut WINDOW_AREA: RECT = RECT::new(0, 0, 0, 0);
-
-pub struct Window {
+#[derive(Debug)]
+pub struct W {
     pub hwnd: isize,
     pub context: *mut VOID,
     pub screen_mouse_pos: (i32, i32),
+    pub queue: SegQueue<Event>,
+    pub init: bool,
 }
 
-impl Window {
-    //REMOVE
-
-    // pub fn get_long_ptr(&self) -> isize {
-    //     unsafe { GetWindowLongPtrA(self.hwnd, GWLP_USERDATA) }
-    // }
-    // pub fn set_long_ptr(&self) {
-    //     unsafe { GetWindowLongPtrA(std::mem::transmute(self), GWLP_USERDATA) };
-    // }
-
+impl W {
+    pub fn init(&mut self) {
+        unsafe {
+            SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, self as *const _ as isize);
+            self.init = true;
+        }
+    }
     pub fn client_area(&self) -> RECT {
         client_area(self.hwnd)
     }
@@ -64,45 +25,25 @@ impl Window {
     pub fn screen_area(&self) -> RECT {
         screen_area(self.hwnd)
     }
+    pub fn event(&self) -> Option<Event> {
+        debug_assert!(self.init);
 
-    //TODO: Swap between fullscreen and windowed.
-    //https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
-    pub fn fullscreen(&self) {
-        unsafe { ShowWindow(self.hwnd, SW_MAXIMIZE) };
-    }
-
-    pub fn event(&mut self, hwnd: Option<isize>) -> Option<Event> {
         unsafe {
-            if QUIT {
-                return Some(Event::Quit);
-            }
+            let mut msg = MSG::default();
+            let result = PeekMessageA(addr_of_mut!(msg), self.hwnd, 0, 0, PM_REMOVE);
 
-            //Does this actually do anything???
-            let hwnd = hwnd.unwrap_or_default();
-
-            //Note that some messages like WM_MOVE and WM_SIZE will not be included here.
-            //wndproc must be used for window related messages.
-            let result = PeekMessageA(addr_of_mut!(MSG), hwnd, 0, 0, PM_REMOVE);
-
-            //Mouse position.
-            let mp = (MSG.pt.x, MSG.pt.y);
-            if self.screen_mouse_pos != mp {
-                self.screen_mouse_pos = mp;
-                //Event::ScreenMouseMove?
-            }
-
-            match result {
+            let event = match result {
                 0 => None,
-                _ => match MSG.message {
+                _ => match msg.message {
                     WM_MOVE => Some(Event::Move),
                     WM_MOUSEMOVE => {
-                        let x = MSG.l_param & 0xFFFF;
-                        let y = MSG.l_param >> 16 & 0xFFFF;
+                        let x = msg.l_param & 0xFFFF;
+                        let y = msg.l_param >> 16 & 0xFFFF;
                         Some(Event::Mouse(x as i32, y as i32))
                     }
                     WM_MOUSEWHEEL => {
                         const WHEEL_DELTA: i16 = 120;
-                        let value = (MSG.w_param >> 16) as i16;
+                        let value = (msg.w_param >> 16) as i16;
                         let delta = value as f32 / WHEEL_DELTA as f32;
                         if delta >= 0.0 {
                             Some(Event::ScrollUp)
@@ -123,7 +64,7 @@ impl Window {
                         //https://www.autohotkey.com/docs/v1/KeyList.htm#mouse-advanced
                         //XButton1	4th mouse button. Typically performs the same function as Browser_Back.
                         //XButton2	5th mouse button. Typically performs the same function as Browser_Forward.
-                        let button = MSG.w_param >> 16;
+                        let button = msg.w_param >> 16;
                         if button == 1 {
                             Some(Event::Mouse4Down)
                         } else if button == 2 {
@@ -133,7 +74,7 @@ impl Window {
                         }
                     }
                     WM_XBUTTONUP => {
-                        let button = MSG.w_param >> 16;
+                        let button = msg.w_param >> 16;
                         if button == 1 {
                             Some(Event::Mouse4Up)
                         } else if button == 2 {
@@ -143,7 +84,7 @@ impl Window {
                         }
                     }
                     WM_XBUTTONDBLCLK => {
-                        let button = MSG.w_param >> 16;
+                        let button = msg.w_param >> 16;
                         if button == 1 {
                             Some(Event::Mouse4DoubleClick)
                         } else if button == 2 {
@@ -154,7 +95,7 @@ impl Window {
                     }
                     //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
                     WM_KEYDOWN => {
-                        let vk = MSG.w_param as i32;
+                        let vk = msg.w_param as i32;
                         let modifiers = modifiers();
                         let shift = modifiers.shift;
 
@@ -226,28 +167,43 @@ impl Window {
                         }
                     }
                     _ => {
-                        TranslateMessage(addr_of_mut!(MSG));
-                        DispatchMessageA(addr_of_mut!(MSG));
+                        TranslateMessage(addr_of_mut!(msg));
+                        DispatchMessageA(addr_of_mut!(msg));
                         None
                     }
                 },
+            };
+
+            //Window procedure events take presidence here.
+            if let Some(event) = event {
+                self.queue.push(event)
             }
+
+            self.queue.pop()
         }
     }
 }
 
 unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
-    //TODO: Handle dragging.
-    //https://github.com/rust-windowing/winit/blob/7bed5eecfdcbde16e5619fd137f0229e8e7e8ed4/src/platform_impl/windows/window.rs#L474C21-L474C21
+    let window = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+
+    if window == 0 {
+        match msg {
+            WM_CREATE => {
+                if !set_dark_mode(hwnd) {
+                    println!("Failed to set dark mode!");
+                }
+                return 0;
+            }
+            _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
+        }
+    };
+
+    let window = &mut (*(window as *mut W));
 
     match msg {
         WM_DESTROY | WM_CLOSE => {
-            QUIT = true;
-            //TODO: Check if this closes the window faster.
-            //I think windows cleans up the window when the application is closed.
-            //So I don't really care.
-            // DestroyWindow(hwnd);
-            // PostQuitMessage(0);
+            window.queue.push(Event::Quit);
             return 0;
         }
         WM_CREATE => {
@@ -264,64 +220,18 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
             return 0;
         }
         WM_MOVE => {
+            window.queue.push(Event::Move);
             return 0;
         }
-        // WM_MOVE => {
-        //     let x = (MSG.l_param as u32) & 0xffff;
-        //     let y = ((MSG.l_param as u32) >> 16) & 0xffff;
-
-        //     let width = WINDOW_AREA.width();
-        //     let height = WINDOW_AREA.height();
-
-        //     WINDOW_AREA.left = x as i32;
-        //     WINDOW_AREA.top = y as i32;
-        //     WINDOW_AREA.right = x as i32 + width;
-        //     WINDOW_AREA.bottom = y as i32 + height;
-
-        //     return 0;
-        // }
-        //https://billthefarmer.github.io/blog/post/handling-resizing-in-windows/
-        //https://github.com/not-fl3/miniquad/blob/f6780f19d3592077019872850d00e5eb9e92a22d/src/native/windows.rs#L214
-        // WM_SIZE => {
-        //     //When resizing the window horizontally the height changes.
-        //     //This should not be possible?
-
-        //     //TODO: These must be totally wrong.
-        //     // let width = (MSG.l_param as u32) & 0xffff;
-        //     // let height = ((MSG.l_param as u32) >> 16) & 0xffff;
-
-        //     let mut rect = WinRect::default();
-        //     GetClientRect(hwnd, &mut rect);
-
-        //     let mut top_left = Point {
-        //         x: rect.left,
-        //         y: rect.top,
-        //     };
-        //     ClientToScreen(hwnd, &mut top_left);
-
-        //     let mut bottom_right = Point {
-        //         x: rect.right,
-        //         y: rect.bottom,
-        //     };
-        //     ClientToScreen(hwnd, &mut bottom_right);
-
-        //     SetRect(
-        //         &mut rect,
-        //         top_left.x,
-        //         top_left.y,
-        //         bottom_right.x,
-        //         bottom_right.y,
-        //     );
-
-        //     WINDOW_AREA = rect;
-
-        //     return 0;
-        // }
+        WM_SIZE => {
+            window.queue.push(Event::Resize);
+            return 0;
+        }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
     }
 }
 
-pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Window {
+pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> W {
     //CS_HREDRAW AND CS_VREDRAW ARE FOR WM_PAINT I THINK?
     //We don't need them.
     //const WINDOW_STYLE: u32 = CS_HREDRAW | CS_VREDRAW;
@@ -346,11 +256,6 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
 
         let _ = RegisterClassA(&wnd_class);
 
-        // WINDOW_AREA.top = x;
-        // WINDOW_AREA.left = y;
-        // WINDOW_AREA.right = width;
-        // WINDOW_AREA.bottom = height;
-
         //Imagine that the users wants a window that is 800x600.
         //`CreateWindow` takes in screen coordinates instead of client coordiantes.
         //Which means that it will set the window size including the title bar and borders etc.
@@ -365,18 +270,6 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
             right: x + width,
             bottom: y + height,
         };
-        // let _ = AdjustWindowRectEx(&mut rect, WINDOW_OPTIONS, 0, 0);
-
-        // let result = AdjustWindowRectEx(&mut rect, 0, 0, 0);
-        // assert_eq!(rect.width(), width);
-        // assert_eq!(rect.height(), height);
-        // if result == 0 {
-        //     let last_error = GetLastError();
-        //     panic!(
-        //         "Error with `AdjustWindowRectEx`, error code: {}",
-        //         last_error
-        //     );
-        // }
 
         // let h_instance = get_hinstance();
         let hwnd = CreateWindowExA(
@@ -400,10 +293,12 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
 
         let context = GetDC(hwnd);
 
-        Window {
+        W {
             hwnd,
             context,
             screen_mouse_pos: (0, 0),
+            queue: SegQueue::new(),
+            init: false,
         }
     }
 }

@@ -2,6 +2,7 @@
 mod constants;
 mod gdi;
 mod window;
+pub mod window_queue_test;
 
 use std::ptr::addr_of_mut;
 
@@ -195,9 +196,16 @@ extern "system" {
     pub fn GetWindow(hwnd: isize, uCmd: u32) -> isize;
     pub fn DestroyWindow(hwnd: isize) -> i32;
     pub fn GetForegroundWindow() -> isize;
+
+    pub fn GetWindowLongPtrW(hwnd: isize, nIndex: i32) -> isize;
+    pub fn SetWindowLongPtrW(hwnd: isize, nIndex: i32, dwNewLong: isize) -> isize;
+
     pub fn GetWindowLongPtrA(hwnd: isize, nIndex: i32) -> isize;
-    pub fn SetWindowLongA(hwnd: isize, nIndex: i32, dwNewLong: LONG) -> LONG;
+    pub fn SetWindowLongPtrA(hwnd: isize, nIndex: i32, dwNewLong: isize) -> isize;
+
     pub fn GetWindowLongA(hwnd: isize, nIndex: i32) -> LONG;
+    pub fn SetWindowLongA(hwnd: isize, nIndex: i32, dwNewLong: LONG) -> LONG;
+
     pub fn ShowWindow(hwnd: isize, nCmdShow: i32) -> BOOL;
     pub fn GetWindowInfo(hwnd: isize, pwi: *mut WindowInfo) -> i32;
     ///Calculates the required size of the window rectangle, based on the desired size of the client rectangle. The window rectangle can then be passed to the CreateWindowEx function to create a window whose client area is the desired size.
@@ -283,6 +291,7 @@ pub enum Event {
     Mouse5DoubleClick,
     MiddleMouseDoubleClick,
     Move,
+    Resize,
 }
 
 pub fn mouse_pos() -> (i32, i32) {

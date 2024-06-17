@@ -2,7 +2,18 @@ use window::*;
 
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {
-    let mut window = create_window("Window", 0, 0, 600, 400);
+    let mut window = window::window_queue_test::create_window("test", 0, 0, 600, 400);
+    window.init();
+
+    // loop {
+    //     match window.event() {
+    //         Some(event) => println!("{:?}", event),
+    //         Some(Event::Quit) => break,
+    //         _ => {}
+    //     }
+    // }
+
+    // let mut window = create_window("Window", 0, 0, 600, 400);
 
     let context = unsafe { GetDC(window.hwnd) };
     let mut area = window.client_area();
@@ -19,7 +30,7 @@ fn main() {
             width = area.width() as usize;
             height = area.height() as usize;
             buffer.clear();
-            buffer.resize(width * height * std::mem::size_of::<RGBQUAD>(), 0);
+            buffer.resize(width * height, 0);
             buffer.fill(0x305679);
             bitmap = create_bitmap(width as i32, height as i32);
 
@@ -47,6 +58,7 @@ fn main() {
                 SRCCOPY,
             )
         };
+
         // println!("{:?}", mouse_pos());
         // let screen = screen_area(window.hwnd);
         // println!(
@@ -62,11 +74,14 @@ fn main() {
         //     client.width(),
         //     client.height()
         // );
-        println!("{:?}", window.screen_mouse_pos);
-        match window.event(None) {
+
+        // println!("{:?}", window.screen_mouse_pos);
+        match window.event() {
             Some(Event::Quit) => break,
+            Some(event) => println!("{:?}", event),
             _ => {}
         }
+
         // match event(None) {
         //     Some(Event::Mouse(x, y)) => println!("{} {}", x, y),
         //     Some(Event::Quit) => break,
