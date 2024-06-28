@@ -1,27 +1,27 @@
+use crate::*;
 use crossbeam_queue::SegQueue;
 
-use crate::*;
-
 #[derive(Debug)]
-pub struct W {
+pub struct Window {
     pub hwnd: isize,
-    pub context: *mut VOID,
     pub screen_mouse_pos: (i32, i32),
     pub queue: SegQueue<Event>,
     pub init: bool,
 }
 
-impl W {
+impl Window {
     pub fn init(&mut self) {
         unsafe {
             SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, self as *const _ as isize);
             self.init = true;
         }
     }
+    pub fn dpi(&self) -> u32 {
+        unsafe { GetDpiForWindow(self.hwnd) }
+    }
     pub fn client_area(&self) -> RECT {
         client_area(self.hwnd)
     }
-
     pub fn screen_area(&self) -> RECT {
         screen_area(self.hwnd)
     }
@@ -35,6 +35,8 @@ impl W {
             let event = match result {
                 0 => None,
                 _ => match msg.message {
+                    //This is not working :/
+                    WM_GETDPISCALEDSIZE => Some(Event::Dpi(msg.w_param)),
                     WM_MOVE => Some(Event::Move),
                     WM_MOUSEMOVE => {
                         let x = msg.l_param & 0xFFFF;
@@ -112,9 +114,6 @@ impl W {
                             VK_SHIFT | VK_LSHIFT | VK_RSHIFT => return Some(Event::Shift),
                             VK_CONTROL | VK_LCONTROL | VK_RCONTROL => return Some(Event::Control),
                             VK_MENU | VK_LMENU | VK_RMENU => return Some(Event::Alt),
-
-                            //TODO: Tilde is kind of an odd ball.
-                            //Might need to handle this one better.
                             VK_OEM_PLUS if shift => return Some(Event::Char('+')),
                             VK_OEM_MINUS if shift => return Some(Event::Char('_')),
                             VK_OEM_3 if shift => return Some(Event::Char('~')),
@@ -128,7 +127,6 @@ impl W {
                             VK_OEM_2 if shift => return Some(Event::Char('?')),
                             VK_OEM_PLUS => return Some(Event::Char('=')),
                             VK_OEM_MINUS => return Some(Event::Char('-')),
-
                             VK_OEM_3 => return Some(Event::Char('`')),
                             VK_OEM_4 => return Some(Event::Char('[')),
                             VK_OEM_6 => return Some(Event::Char(']')),
@@ -199,7 +197,7 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
         }
     };
 
-    let window = &mut (*(window as *mut W));
+    let window = &mut (*(window as *mut Window));
 
     match msg {
         WM_DESTROY | WM_CLOSE => {
@@ -220,85 +218,91 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
             return 0;
         }
         WM_MOVE => {
-            window.queue.push(Event::Move);
+            // window.queue.push(Event::Move);
             return 0;
         }
         WM_SIZE => {
             window.queue.push(Event::Resize);
             return 0;
         }
+        //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-getdpiscaledsize
+        WM_GETDPISCALEDSIZE => {
+            window.queue.push(Event::Dpi(wparam));
+            return 1;
+        }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
     }
 }
 
-pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> W {
-    //CS_HREDRAW AND CS_VREDRAW ARE FOR WM_PAINT I THINK?
-    //We don't need them.
-    //const WINDOW_STYLE: u32 = CS_HREDRAW | CS_VREDRAW;
-    //I don't think CS_OWNDC is needed either.
-    //https://devblogs.microsoft.com/oldnewthing/20060601-06/?p=31003
+pub unsafe fn create_window(
+    title: &str,
+    // x: Option<i32>,
+    // y: Option<i32>,
+    width: i32,
+    height: i32,
+) -> Window {
     const WINDOW_STYLE: u32 = 0;
+    //Basically every window option that people use nowadays is completely pointless.
     const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
-    unsafe {
-        //Title must be null terminated.
-        let title = std::ffi::CString::new(title).unwrap();
-        let wnd_class = WNDCLASSA {
-            // wnd_proc: Some(DefWindowProcA),
-            wnd_proc: Some(wnd_proc),
-            class_name: title.as_ptr() as *const u8,
-            style: WINDOW_STYLE,
-            background: 0,
-            //Prevent cursor from changing when loading.
-            cursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW) as isize,
-            ..Default::default()
-        };
+    if SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) as u32 == 0 {
+        panic!("Only Windows 10 (1607) or later is supported.")
+    };
 
-        let _ = RegisterClassA(&wnd_class);
+    //Title must be null terminated.
+    let title = std::ffi::CString::new(title).unwrap();
 
-        //Imagine that the users wants a window that is 800x600.
-        //`CreateWindow` takes in screen coordinates instead of client coordiantes.
-        //Which means that it will set the window size including the title bar and borders etc.
-        //We must convert the requested client coordinates to screen coordinates.
+    let wnd_class = WNDCLASSA {
+        wnd_proc: Some(wnd_proc),
+        class_name: title.as_ptr() as *const u8,
+        style: WINDOW_STYLE,
+        background: 0,
+        //Prevent cursor from changing when loading.
+        cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
+        ..Default::default()
+    };
 
-        //TODO: What is this value at different DPI's?
-        const WINDOW_PADDING_96_DPI: i32 = 7;
+    let _ = RegisterClassA(&wnd_class);
 
-        let rect = RECT {
-            left: x - WINDOW_PADDING_96_DPI,
-            top: y,
-            right: x + width,
-            bottom: y + height,
-        };
+    //Imagine that the users wants a window that is 800x600.
+    //`CreateWindow` takes in screen coordinates instead of client coordiantes.
+    //Which means that it will set the window size including the title bar and borders etc.
+    //We must convert the requested client coordinates to screen coordinates.
 
-        // let h_instance = get_hinstance();
-        let hwnd = CreateWindowExA(
-            0,
-            title.as_ptr() as *const u8,
-            title.as_ptr() as *const u8,
-            WINDOW_OPTIONS,
-            //Previously I was using CW_USEDEFAULT for x and y.
-            //This is not equal to 0, 0 but it is a good starting position.
-            rect.left,
-            rect.top,
-            rect.width(),
-            rect.height(),
-            0,
-            0,
-            0, // h_instance,
-            std::ptr::null(),
-        );
+    //TODO: What is this value at different DPI's?
+    // const WINDOW_PADDING_96_DPI: i32 = 7;
+    //         let rect = RECT {
+    //             left: x - WINDOW_PADDING_96_DPI,
+    //             top: y,
+    //             right: x + width,
+    //             bottom: y + height,
+    //         };
 
-        assert_ne!(hwnd, 0);
+    let hwnd = CreateWindowExA(
+        0,
+        title.as_ptr() as *const u8,
+        title.as_ptr() as *const u8,
+        WINDOW_OPTIONS,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        width,
+        height,
+        // rect.left,
+        // rect.top,
+        // rect.width(),
+        // rect.height(),
+        0,
+        0,
+        0,
+        null(),
+    );
 
-        let context = GetDC(hwnd);
+    assert_ne!(hwnd, 0);
 
-        W {
-            hwnd,
-            context,
-            screen_mouse_pos: (0, 0),
-            queue: SegQueue::new(),
-            init: false,
-        }
+    Window {
+        hwnd,
+        screen_mouse_pos: (0, 0),
+        queue: SegQueue::new(),
+        init: false,
     }
 }

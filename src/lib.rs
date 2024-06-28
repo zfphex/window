@@ -2,9 +2,12 @@
 mod constants;
 mod gdi;
 mod window;
-pub mod window_queue_test;
 
-use std::ptr::addr_of_mut;
+pub mod queue_test;
+
+use core::ptr::addr_of_mut;
+use core::ptr::null;
+use core::ptr::null_mut;
 
 pub use constants::*;
 pub use gdi::*;
@@ -69,6 +72,28 @@ pub struct MSG {
     pub l_param: isize,
     pub time: u32,
     pub pt: Point,
+}
+
+impl MSG {
+    #[inline]
+    pub fn low_order_l(&self) -> isize {
+        self.l_param >> 16 & 0xFFFF
+    }
+
+    #[inline]
+    pub fn high_order_l(&self) -> isize {
+        self.l_param & 0xFFFF
+    }
+
+    #[inline]
+    pub fn low_order_w(&self) -> usize {
+        self.w_param >> 16 & 0xFFFF
+    }
+
+    #[inline]
+    pub fn high_order_w(&self) -> usize {
+        self.w_param & 0xFFFF
+    }
 }
 
 #[repr(C)]
@@ -216,20 +241,25 @@ extern "system" {
     pub fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
     ///Retrieves the coordinates of a window's client area.
     pub fn GetClientRect(hwnd: isize, lpRect: *mut RECT) -> i32;
-    pub fn ClientToScreen(hwnd: HWND, lpPoint: *mut Point) -> BOOL;
+    pub fn ClientToScreen(hwnd: isize, lpPoint: *mut Point) -> BOOL;
     pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
 
     pub fn DwmGetWindowAttribute(
-        hWnd: HWND,
-        dwAttribute: DWORD,
+        hWnd: isize,
+        dwAttribute: u32,
         pvAttribute: *mut VOID,
-        cbAttribute: DWORD,
+        cbAttribute: u32,
     ) -> i32;
 
     pub fn GetSystemMetricsForDpi(nIndex: i32, dpi: u32) -> i32;
 
     //TODO: Remove
     // pub fn SetRect(lprc: *mut WinRect, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
+
+    pub fn SetThreadDpiAwarenessContext(dpiContext: DPI_AWARENESS_CONTEXT)
+        -> DPI_AWARENESS_CONTEXT;
+    pub fn GetThreadDpiAwarenessContext() -> DPI_AWARENESS_CONTEXT;
+    pub fn GetDpiForWindow(hwnd: isize) -> u32;
 }
 
 #[derive(Debug, PartialEq)]
@@ -292,6 +322,7 @@ pub enum Event {
     MiddleMouseDoubleClick,
     Move,
     Resize,
+    Dpi(usize),
 }
 
 pub fn mouse_pos() -> (i32, i32) {
@@ -505,8 +536,7 @@ pub fn event_blocking() -> Option<Event> {
     }
 }
 
-//TODO: Find a way to toggle this at runtime?
-///Only works on Windows 17763 and above.
+///Only works on Windows 1809 and above.
 pub unsafe fn set_dark_mode(hwnd: isize) -> bool {
     const WCA_USEDARKMODECOLORS: u32 = 26;
 
@@ -559,41 +589,4 @@ pub unsafe fn set_dark_mode(hwnd: isize) -> bool {
     };
 
     set_window(hwnd, &mut data) != 0
-}
-
-pub fn get_hinstance() -> isize {
-    // Gets the instance handle by taking the address of the
-    // pseudo-variable created by the microsoft linker:
-    // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
-
-    // This is preferred over GetModuleHandle(NULL) because it also works in DLLs:
-    // https://stackoverflow.com/questions/21718027/getmodulehandlenull-vs-hinstance
-    #[repr(C, packed(2))]
-    pub struct ImageDosHeader {
-        pub e_magic: u16,
-        pub e_cblp: u16,
-        pub e_cp: u16,
-        pub e_crlc: u16,
-        pub e_cparhdr: u16,
-        pub e_minalloc: u16,
-        pub e_maxalloc: u16,
-        pub e_ss: u16,
-        pub e_sp: u16,
-        pub e_csum: u16,
-        pub e_ip: u16,
-        pub e_cs: u16,
-        pub e_lfarlc: u16,
-        pub e_ovno: u16,
-        pub e_res: [u16; 4],
-        pub e_oemid: u16,
-        pub e_oeminfo: u16,
-        pub e_res2: [u16; 10],
-        pub e_lfanew: i32,
-    }
-
-    extern "C" {
-        static __ImageBase: ImageDosHeader;
-    }
-
-    unsafe { &__ImageBase as *const _ as _ }
 }

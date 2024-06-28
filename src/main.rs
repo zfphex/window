@@ -2,7 +2,7 @@ use window::*;
 
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {
-    let mut window = window::window_queue_test::create_window("test", 0, 0, 600, 400);
+    let mut window = unsafe { window::queue_test::create_window("Window", 600, 400) };
     window.init();
 
     // loop {
@@ -77,8 +77,10 @@ fn main() {
 
         // println!("{:?}", window.screen_mouse_pos);
         match window.event() {
-            Some(Event::Quit) => break,
-            Some(event) => println!("{:?}", event),
+            Some(Event::Quit | Event::Escape) => break,
+            Some(Event::Dpi(dpi)) => println!("Dpi: {:?}", dpi),
+            Some(Event::Char(char)) => println!("{:?}", char),
+            // Some(event) => println!("r:?}", event),
             _ => {}
         }
 

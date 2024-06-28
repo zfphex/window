@@ -340,7 +340,7 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
             style: WINDOW_STYLE,
             background: 0,
             //Prevent cursor from changing when loading.
-            cursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW) as isize,
+            cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
             ..Default::default()
         };
 
@@ -393,7 +393,7 @@ pub fn create_window(title: &str, x: i32, y: i32, width: i32, height: i32) -> Wi
             0,
             0,
             0, // h_instance,
-            std::ptr::null(),
+            null(),
         );
 
         assert_ne!(hwnd, 0);
