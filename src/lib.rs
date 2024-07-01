@@ -3,8 +3,6 @@ mod constants;
 mod gdi;
 mod window;
 
-pub mod queue_test;
-
 use core::ptr::addr_of_mut;
 use core::ptr::null;
 use core::ptr::null_mut;
@@ -93,6 +91,17 @@ impl MSG {
     #[inline]
     pub fn high_order_w(&self) -> usize {
         self.w_param & 0xFFFF
+    }
+
+    pub const fn new() -> Self {
+        Self {
+            hwnd: 0,
+            message: 0,
+            w_param: 0,
+            l_param: 0,
+            time: 0,
+            pt: Point { x: 0, y: 0 },
+        }
     }
 }
 
@@ -351,6 +360,59 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
+///To get the window bounds excluding the drop shadow, use DwmGetWindowAttribute, specifying DWMWA_EXTENDED_FRAME_BOUNDS. Note that unlike the Window Rect, the DWM Extended Frame Bounds are not adjusted for DPI. Getting the extended frame bounds can only be done after the window has been shown at least once.
+pub fn screen_area_no_shadow(_hwnd: isize) -> RECT {
+    todo!();
+}
+
+///WinRect coordiantes can be negative.
+pub fn screen_area(hwnd: isize) -> RECT {
+    let mut rect = RECT::default();
+    unsafe { GetWindowRect(hwnd, &mut rect) };
+    rect
+}
+
+///WinRect coordiantes *should* never be negative.
+pub fn client_area(hwnd: isize) -> RECT {
+    let mut rect = RECT::default();
+    unsafe { GetClientRect(hwnd, &mut rect) };
+    rect
+}
+
+pub fn desktop_area() -> RECT {
+    unsafe { client_area(GetDesktopWindow()) }
+}
+
+// pub fn is_maximized(window: HWND) -> bool {
+//     unsafe {
+//         let mut placement: WINDOWPLACEMENT = mem::zeroed();
+//         placement.length = mem::size_of::<WINDOWPLACEMENT>() as u32;
+//         GetWindowPlacement(window, &mut placement);
+//         placement.showCmd == SW_MAXIMIZE
+//     }
+// }
+
+pub fn event(hwnd: Option<isize>) -> Option<Event> {
+    if unsafe { QUIT } {
+        return Some(Event::Quit);
+    }
+
+    let mut msg = MSG::new();
+    let result =
+        unsafe { PeekMessageA(addr_of_mut!(msg), hwnd.unwrap_or_default(), 0, 0, PM_REMOVE) };
+    handle_msg(msg, result)
+}
+
+pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
+    if unsafe { QUIT } {
+        return Some(Event::Quit);
+    }
+
+    let msg = MSG::new();
+    let result = unsafe { GetMessageA(addr_of_mut!(MSG), hwnd.unwrap_or_default(), 0, 0) };
+    handle_msg(msg, result)
+}
+
 //Event handling should probably happen in the UI library.
 //It doesn't really make sense to return an event every time.
 //There will be a context which will hold the state every frame.
@@ -358,32 +420,30 @@ pub fn modifiers() -> Modifiers {
 //For example, on a mouse press, `ctx.left_mouse.pressed = true`
 //Rather than return Some(Event::LeftMouseDown) and then having to set that later.
 //It just doesn't make any sense.
-pub fn event(hwnd: Option<isize>) -> Option<Event> {
+
+//Note that some messages like WM_MOVE and WM_SIZE will not be included here.
+//wndproc must be used for window related messages.
+fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
     unsafe {
-        if QUIT {
-            return Some(Event::Quit);
-        }
-
-        //Note that some messages like WM_MOVE and WM_SIZE will not be included here.
-        //wndproc must be used for window related messages.
-        let hwnd = hwnd.unwrap_or_default();
-        let result = PeekMessageA(addr_of_mut!(MSG), hwnd, 0, 0, PM_REMOVE);
-
         //Mouse position.
         // let (x, y) = (MSG.pt.x, MSG.pt.y);
 
         match result {
+            -1 => {
+                let last_error = GetLastError();
+                panic!("Error with `GetMessageA`, error code: {}", last_error);
+            }
             0 => None,
-            _ => match MSG.message {
+            _ => match msg.message {
                 WM_MOVE => Some(Event::Move),
                 WM_MOUSEMOVE => {
-                    let x = MSG.l_param & 0xFFFF;
-                    let y = MSG.l_param >> 16 & 0xFFFF;
+                    let x = msg.l_param & 0xFFFF;
+                    let y = msg.l_param >> 16 & 0xFFFF;
                     Some(Event::Mouse(x as i32, y as i32))
                 }
                 WM_MOUSEWHEEL => {
                     const WHEEL_DELTA: i16 = 120;
-                    let value = (MSG.w_param >> 16) as i16;
+                    let value = (msg.w_param >> 16) as i16;
                     let delta = value as f32 / WHEEL_DELTA as f32;
                     if delta >= 0.0 {
                         Some(Event::ScrollUp)
@@ -404,7 +464,7 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                     //https://www.autohotkey.com/docs/v1/KeyList.htm#mouse-advanced
                     //XButton1	4th mouse button. Typically performs the same function as Browser_Back.
                     //XButton2	5th mouse button. Typically performs the same function as Browser_Forward.
-                    let button = MSG.w_param >> 16;
+                    let button = msg.w_param >> 16;
                     if button == 1 {
                         Some(Event::Mouse4Down)
                     } else if button == 2 {
@@ -414,7 +474,7 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                     }
                 }
                 WM_XBUTTONUP => {
-                    let button = MSG.w_param >> 16;
+                    let button = msg.w_param >> 16;
                     if button == 1 {
                         Some(Event::Mouse4Up)
                     } else if button == 2 {
@@ -424,7 +484,7 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                     }
                 }
                 WM_XBUTTONDBLCLK => {
-                    let button = MSG.w_param >> 16;
+                    let button = msg.w_param >> 16;
                     if button == 1 {
                         Some(Event::Mouse4DoubleClick)
                     } else if button == 2 {
@@ -435,7 +495,7 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                 }
                 //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
                 WM_KEYDOWN => {
-                    let vk = MSG.w_param as i32;
+                    let vk = msg.w_param as i32;
                     let modifiers = modifiers();
                     let shift = modifiers.shift;
 
@@ -452,9 +512,6 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                         VK_SHIFT | VK_LSHIFT | VK_RSHIFT => return Some(Event::Shift),
                         VK_CONTROL | VK_LCONTROL | VK_RCONTROL => return Some(Event::Control),
                         VK_MENU | VK_LMENU | VK_RMENU => return Some(Event::Alt),
-
-                        //TODO: Tilde is kind of an odd ball.
-                        //Might need to handle this one better.
                         VK_OEM_PLUS if shift => return Some(Event::Char('+')),
                         VK_OEM_MINUS if shift => return Some(Event::Char('_')),
                         VK_OEM_3 if shift => return Some(Event::Char('~')),
@@ -468,7 +525,6 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                         VK_OEM_2 if shift => return Some(Event::Char('?')),
                         VK_OEM_PLUS => return Some(Event::Char('=')),
                         VK_OEM_MINUS => return Some(Event::Char('-')),
-
                         VK_OEM_3 => return Some(Event::Char('`')),
                         VK_OEM_4 => return Some(Event::Char('[')),
                         VK_OEM_6 => return Some(Event::Char(']')),
@@ -507,31 +563,11 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
                     }
                 }
                 _ => {
-                    TranslateMessage(addr_of_mut!(MSG));
-                    DispatchMessageA(addr_of_mut!(MSG));
+                    TranslateMessage(addr_of_mut!(msg));
+                    DispatchMessageA(addr_of_mut!(msg));
                     None
                 }
             },
-        }
-    }
-}
-
-pub fn event_blocking() -> Option<Event> {
-    let message_result = unsafe { GetMessageA(addr_of_mut!(MSG), 0, 0, 0) };
-
-    match message_result {
-        -1 => {
-            let last_error = unsafe { GetLastError() };
-            panic!("Error with `GetMessageA`, error code: {}", last_error);
-        }
-        0 => Some(Event::Quit),
-        _ => {
-            //Handle message here.
-            unsafe {
-                TranslateMessage(addr_of_mut!(MSG));
-                DispatchMessageA(addr_of_mut!(MSG));
-            }
-            None
         }
     }
 }

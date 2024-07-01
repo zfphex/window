@@ -2,19 +2,7 @@ use window::*;
 
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {
-    let window = unsafe { window::queue_test::create_window("Window", 600, 400) };
-    // window.init();
-
-    // loop {
-    //     match window.event() {
-    //         Some(event) => println!("{:?}", event),
-    //         Some(Event::Quit) => break,
-    //         _ => {}
-    //     }
-    // }
-
-    // let mut window = create_window("Window", 0, 0, 600, 400);
-
+    let window = unsafe { create_window("Window", 600, 400) };
     let context = unsafe { GetDC(window.hwnd) };
     let mut area = window.client_area();
     let mut width = area.width() as usize;
