@@ -78,7 +78,10 @@ fn main() {
         // println!("{:?}", window.screen_mouse_pos);
         match window.event() {
             Some(Event::Quit | Event::Escape) => break,
-            Some(Event::Dpi(dpi)) => println!("Dpi: {:?}", dpi),
+            Some(Event::Dpi(dpi)) => {
+                println!("Dpi: {:?}", dpi);
+                println!("Scale factor: {}", window.scale_factor());
+            }
             Some(Event::Char(char)) => println!("{:?}", char),
             // Some(event) => println!("r:?}", event),
             _ => {}

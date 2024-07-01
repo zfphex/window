@@ -16,9 +16,16 @@ impl Window {
             self.init = true;
         }
     }
+
+    pub fn scale_factor(&self) -> f32 {
+        const DEFAULT_DPI: f32 = 96.0;
+        unsafe { GetDpiForWindow(self.hwnd) as f32 / DEFAULT_DPI }
+    }
+
     pub fn dpi(&self) -> u32 {
         unsafe { GetDpiForWindow(self.hwnd) }
     }
+
     pub fn client_area(&self) -> RECT {
         client_area(self.hwnd)
     }
