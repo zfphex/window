@@ -351,8 +351,6 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
-
-
 //Event handling should probably happen in the UI library.
 //It doesn't really make sense to return an event every time.
 //There will be a context which will hold the state every frame.
@@ -539,7 +537,7 @@ pub fn event_blocking() -> Option<Event> {
 }
 
 ///Only works on Windows 1809 and above.
-pub unsafe fn set_dark_mode(hwnd: isize) -> bool {
+pub unsafe fn set_dark_mode(hwnd: isize) -> Result<(), &'static str> {
     const WCA_USEDARKMODECOLORS: u32 = 26;
 
     #[repr(C)]
@@ -574,7 +572,7 @@ pub unsafe fn set_dark_mode(hwnd: isize) -> bool {
     let status = get_version(&mut v);
 
     if v.dw_build_number < 17763 || status < 0 {
-        return false;
+        return Err("Window version must be 1809 or above.");
     }
 
     let user32 = LoadLibraryA("user32.dll\0".as_ptr() as *const i8);
@@ -590,5 +588,9 @@ pub unsafe fn set_dark_mode(hwnd: isize) -> bool {
         size: 4,
     };
 
-    set_window(hwnd, &mut data) != 0
+    if set_window(hwnd, &mut data) != 0 {
+        Ok(())
+    } else {
+        Err("Call to SetWindowCompositionAttribute failed.")
+    }
 }

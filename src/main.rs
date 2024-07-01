@@ -2,8 +2,8 @@ use window::*;
 
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {
-    let mut window = unsafe { window::queue_test::create_window("Window", 600, 400) };
-    window.init();
+    let window = unsafe { window::queue_test::create_window("Window", 600, 400) };
+    // window.init();
 
     // loop {
     //     match window.event() {

@@ -251,9 +251,7 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
             return 0;
         }
         WM_CREATE => {
-            if !set_dark_mode(hwnd) {
-                println!("Failed to set dark mode!");
-            }
+            set_dark_mode(hwnd).unwrap();
             return 0;
         }
         WM_ERASEBKGND => {

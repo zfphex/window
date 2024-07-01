@@ -6,26 +6,16 @@ pub struct Window {
     pub hwnd: isize,
     pub screen_mouse_pos: (i32, i32),
     pub queue: SegQueue<Event>,
-    pub init: bool,
 }
 
 impl Window {
-    pub fn init(&mut self) {
-        unsafe {
-            SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, self as *const _ as isize);
-            self.init = true;
-        }
-    }
-
     pub fn scale_factor(&self) -> f32 {
         const DEFAULT_DPI: f32 = 96.0;
         unsafe { GetDpiForWindow(self.hwnd) as f32 / DEFAULT_DPI }
     }
-
     pub fn dpi(&self) -> u32 {
         unsafe { GetDpiForWindow(self.hwnd) }
     }
-
     pub fn client_area(&self) -> RECT {
         client_area(self.hwnd)
     }
@@ -33,8 +23,6 @@ impl Window {
         screen_area(self.hwnd)
     }
     pub fn event(&self) -> Option<Event> {
-        debug_assert!(self.init);
-
         unsafe {
             let mut msg = MSG::default();
             let result = PeekMessageA(addr_of_mut!(msg), self.hwnd, 0, 0, PM_REMOVE);
@@ -189,34 +177,31 @@ impl Window {
     }
 }
 
+//TODO: Remove
+static mut TEST: isize = 0;
+
 unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
-    let window = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    if msg == WM_CREATE {
+        set_dark_mode(hwnd).unwrap();
+        return 0;
+    }
 
-    if window == 0 {
-        match msg {
-            WM_CREATE => {
-                if !set_dark_mode(hwnd) {
-                    println!("Failed to set dark mode!");
-                }
-                return 0;
-            }
-            _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
-        }
-    };
+    let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Window;
+    assert_eq!(ptr as isize, TEST);
 
-    let window = &mut (*(window as *mut Window));
+    if ptr.is_null() {
+        return DefWindowProcA(hwnd, msg, wparam, lparam);
+    }
+
+    //I'm not convinced this is the right way to do this.
+    let window: &mut Window = &mut *ptr;
 
     match msg {
         WM_DESTROY | WM_CLOSE => {
             window.queue.push(Event::Quit);
             return 0;
         }
-        WM_CREATE => {
-            if !set_dark_mode(hwnd) {
-                println!("Failed to set dark mode!");
-            }
-            return 0;
-        }
+
         WM_ERASEBKGND => {
             return 1;
         }
@@ -247,7 +232,7 @@ pub unsafe fn create_window(
     // y: Option<i32>,
     width: i32,
     height: i32,
-) -> Window {
+) -> std::pin::Pin<Box<Window>> {
     const WINDOW_STYLE: u32 = 0;
     //Basically every window option that people use nowadays is completely pointless.
     const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
@@ -306,10 +291,17 @@ pub unsafe fn create_window(
 
     assert_ne!(hwnd, 0);
 
-    Window {
+    //Safety: This *should* be pinned.
+    let window = Box::pin(Window {
         hwnd,
         screen_mouse_pos: (0, 0),
         queue: SegQueue::new(),
-        init: false,
-    }
+    });
+
+    let addr = &*window as *const Window;
+    let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
+    assert!(result <= 0);
+    TEST = addr as isize;
+
+    window
 }
