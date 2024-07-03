@@ -47,23 +47,6 @@ fn main() {
             )
         };
 
-        // println!("{:?}", mouse_pos());
-        // let screen = screen_area(window.hwnd);
-        // println!(
-        //     "screen: {:?}, {}, {}",
-        //     screen,
-        //     screen.width(),
-        //     screen.height()
-        // );
-        // let client = client_area(window.hwnd);
-        // println!(
-        //     "client: {:?}, {}, {}",
-        //     client,
-        //     client.width(),
-        //     client.height()
-        // );
-
-        // println!("{:?}", window.screen_mouse_pos);
         match window.event() {
             Some(Event::Quit | Event::Input(Escape, _)) => break,
             Some(Event::Dpi(dpi)) => {
@@ -71,14 +54,7 @@ fn main() {
                 println!("Scale factor: {}", window.scale_factor());
             }
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
-            // Some(event) => println!("r:?}", event),
             _ => {}
         }
-
-        // match event(None) {
-        //     Some(Event::Mouse(x, y)) => println!("{} {}", x, y),
-        //     Some(Event::Quit) => break,
-        //     _ => {}
-        // }
     }
 }

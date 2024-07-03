@@ -155,15 +155,6 @@ impl Default for WNDCLASSA {
     }
 }
 
-static mut MSG: MSG = MSG {
-    hwnd: 0,
-    message: 0,
-    w_param: 0,
-    l_param: 0,
-    time: 0,
-    pt: Point { x: 0, y: 0 },
-};
-
 static mut QUIT: bool = false;
 
 #[link(name = "user32")]
@@ -429,8 +420,8 @@ pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
         return Some(Event::Quit);
     }
 
-    let msg = MSG::new();
-    let result = unsafe { GetMessageA(addr_of_mut!(MSG), hwnd.unwrap_or_default(), 0, 0) };
+    let mut msg = MSG::new();
+    let result = unsafe { GetMessageA(addr_of_mut!(msg), hwnd.unwrap_or_default(), 0, 0) };
     handle_msg(msg, result)
 }
 
@@ -447,7 +438,7 @@ pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
 fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
     unsafe {
         //Mouse position.
-        // let (x, y) = (MSG.pt.x, MSG.pt.y);
+        // let (x, y) = (msg.pt.x, msg.pt.y);
 
         let modifiers = modifiers();
         match result {
