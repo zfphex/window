@@ -65,12 +65,12 @@ fn main() {
 
         // println!("{:?}", window.screen_mouse_pos);
         match window.event() {
-            Some(Event::Quit | Event::Escape) => break,
+            Some(Event::Quit | Event::Input(Escape, _)) => break,
             Some(Event::Dpi(dpi)) => {
                 println!("Dpi: {:?}", dpi);
                 println!("Scale factor: {}", window.scale_factor());
             }
-            Some(Event::Char(char)) => println!("{:?}", char),
+            Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
             // Some(event) => println!("r:?}", event),
             _ => {}
         }

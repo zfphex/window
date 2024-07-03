@@ -10,6 +10,7 @@ use core::ptr::null_mut;
 pub use constants::*;
 pub use gdi::*;
 pub use window::*;
+pub use Key::*;
 
 pub type HWND = isize;
 pub type WPARAM = usize;
@@ -290,8 +291,16 @@ pub enum Modifier {
 #[derive(Debug, PartialEq)]
 pub enum Event {
     Quit,
-    // Key(char, Modifier),
-    //Key
+    //(0, 0) is top left of window.
+    Mouse(i32, i32),
+    Move,
+    Resize,
+    Dpi(usize),
+    Input(Key, Modifiers),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Key {
     Char(char),
     Function(u8),
     Enter,
@@ -307,40 +316,45 @@ pub enum Event {
     Left,
     Right,
 
-    //(0, 0) is top left of window.
-    Mouse(i32, i32),
-
     LeftMouseDown,
-    MiddleMouseDown,
-    RightMouseDown,
     LeftMouseUp,
+    LeftMouseDoubleClick,
+
+    MiddleMouseDown,
     MiddleMouseUp,
+    MiddleMouseDoubleClick,
+
+    RightMouseDown,
     RightMouseUp,
+    RightMouseDoubleClick,
+
+    Mouse4Down,
+    Mouse4Up,
+    Mouse4DoubleClick,
+
+    Mouse5Down,
+    Mouse5Up,
+    Mouse5DoubleClick,
+
     ScrollUp,
     ScrollDown,
 
     Unknown(u16),
-    LeftMouseDoubleClick,
-    RightMouseDoubleClick,
-    Mouse4Up,
-    Mouse5Up,
-    Mouse4Down,
-    Mouse5Down,
-    Mouse4DoubleClick,
-    Mouse5DoubleClick,
-    MiddleMouseDoubleClick,
-    Move,
-    Resize,
-    Dpi(usize),
+    LeftWindows,
+    RightWindows,
+    Menu,
+    ScrollLock,
+    PauseBreak,
+    Insert,
+    Home,
+    Delete,
+    End,
+    PageUp,
+    PageDown,
+    PrintScreen,
 }
 
-pub fn mouse_pos() -> (i32, i32) {
-    let mut point = Point { x: 0, y: 0 };
-    let _ = unsafe { GetCursorPos(&mut point) };
-
-    (point.x, point.y)
-}
-
+#[derive(Debug, PartialEq)]
 pub struct Modifiers {
     pub control: bool,
     pub shift: bool,
@@ -358,6 +372,13 @@ pub fn modifiers() -> Modifiers {
             win: GetKeyState(VK_LWIN) & 0x80 > 0 || GetKeyState(VK_RWIN) & 0x80 > 0,
         }
     }
+}
+
+pub fn mouse_pos() -> (i32, i32) {
+    let mut point = Point { x: 0, y: 0 };
+    let _ = unsafe { GetCursorPos(&mut point) };
+
+    (point.x, point.y)
 }
 
 ///To get the window bounds excluding the drop shadow, use DwmGetWindowAttribute, specifying DWMWA_EXTENDED_FRAME_BOUNDS. Note that unlike the Window Rect, the DWM Extended Frame Bounds are not adjusted for DPI. Getting the extended frame bounds can only be done after the window has been shown at least once.
@@ -428,6 +449,7 @@ fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
         //Mouse position.
         // let (x, y) = (MSG.pt.x, MSG.pt.y);
 
+        let modifiers = modifiers();
         match result {
             -1 => {
                 let last_error = GetLastError();
@@ -446,29 +468,29 @@ fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
                     let value = (msg.w_param >> 16) as i16;
                     let delta = value as f32 / WHEEL_DELTA as f32;
                     if delta >= 0.0 {
-                        Some(Event::ScrollUp)
+                        Some(Event::Input(Key::ScrollUp, modifiers))
                     } else {
-                        Some(Event::ScrollDown)
+                        Some(Event::Input(Key::ScrollDown, modifiers))
                     }
                 }
-                WM_LBUTTONDOWN => Some(Event::LeftMouseDown),
-                WM_LBUTTONUP => Some(Event::LeftMouseUp),
-                WM_LBUTTONDBLCLK => Some(Event::LeftMouseDoubleClick),
-                WM_RBUTTONDOWN => Some(Event::RightMouseDown),
-                WM_RBUTTONUP => Some(Event::RightMouseUp),
-                WM_RBUTTONDBLCLK => Some(Event::RightMouseDoubleClick),
-                WM_MBUTTONDOWN => Some(Event::MiddleMouseDown),
-                WM_MBUTTONUP => Some(Event::MiddleMouseUp),
-                WM_MBUTTONDBLCLK => Some(Event::MiddleMouseDoubleClick),
+                WM_LBUTTONDOWN => Some(Event::Input(Key::LeftMouseDown, modifiers)),
+                WM_LBUTTONUP => Some(Event::Input(Key::LeftMouseUp, modifiers)),
+                WM_LBUTTONDBLCLK => Some(Event::Input(Key::LeftMouseDoubleClick, modifiers)),
+                WM_RBUTTONDOWN => Some(Event::Input(Key::RightMouseDown, modifiers)),
+                WM_RBUTTONUP => Some(Event::Input(Key::RightMouseUp, modifiers)),
+                WM_RBUTTONDBLCLK => Some(Event::Input(Key::RightMouseDoubleClick, modifiers)),
+                WM_MBUTTONDOWN => Some(Event::Input(Key::MiddleMouseDown, modifiers)),
+                WM_MBUTTONUP => Some(Event::Input(Key::MiddleMouseUp, modifiers)),
+                WM_MBUTTONDBLCLK => Some(Event::Input(Key::MiddleMouseDoubleClick, modifiers)),
                 WM_XBUTTONDOWN => {
                     //https://www.autohotkey.com/docs/v1/KeyList.htm#mouse-advanced
                     //XButton1	4th mouse button. Typically performs the same function as Browser_Back.
                     //XButton2	5th mouse button. Typically performs the same function as Browser_Forward.
                     let button = msg.w_param >> 16;
                     if button == 1 {
-                        Some(Event::Mouse4Down)
+                        Some(Event::Input(Key::Mouse4Down, modifiers))
                     } else if button == 2 {
-                        Some(Event::Mouse5Down)
+                        Some(Event::Input(Key::Mouse5Down, modifiers))
                     } else {
                         unreachable!()
                     }
@@ -476,9 +498,9 @@ fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
                 WM_XBUTTONUP => {
                     let button = msg.w_param >> 16;
                     if button == 1 {
-                        Some(Event::Mouse4Up)
+                        Some(Event::Input(Key::Mouse4Up, modifiers))
                     } else if button == 2 {
-                        Some(Event::Mouse5Up)
+                        Some(Event::Input(Key::Mouse5Up, modifiers))
                     } else {
                         unreachable!()
                     }
@@ -486,9 +508,9 @@ fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
                 WM_XBUTTONDBLCLK => {
                     let button = msg.w_param >> 16;
                     if button == 1 {
-                        Some(Event::Mouse4DoubleClick)
+                        Some(Event::Input(Key::Mouse4DoubleClick, modifiers))
                     } else if button == 2 {
-                        Some(Event::Mouse5DoubleClick)
+                        Some(Event::Input(Key::Mouse5DoubleClick, modifiers))
                     } else {
                         unreachable!()
                     }
@@ -496,70 +518,103 @@ fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
                 //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
                 WM_KEYDOWN => {
                     let vk = msg.w_param as i32;
-                    let modifiers = modifiers();
                     let shift = modifiers.shift;
 
                     match vk {
-                        VK_UP => return Some(Event::Up),
-                        VK_DOWN => return Some(Event::Down),
-                        VK_LEFT => return Some(Event::Left),
-                        VK_RIGHT => return Some(Event::Right),
-                        VK_RETURN => return Some(Event::Enter),
-                        VK_SPACE => return Some(Event::Char(' ')),
-                        VK_BACK => return Some(Event::Backspace),
-                        VK_ESCAPE => return Some(Event::Escape),
-                        VK_TAB => return Some(Event::Tab),
-                        VK_SHIFT | VK_LSHIFT | VK_RSHIFT => return Some(Event::Shift),
-                        VK_CONTROL | VK_LCONTROL | VK_RCONTROL => return Some(Event::Control),
-                        VK_MENU | VK_LMENU | VK_RMENU => return Some(Event::Alt),
-                        VK_OEM_PLUS if shift => return Some(Event::Char('+')),
-                        VK_OEM_MINUS if shift => return Some(Event::Char('_')),
-                        VK_OEM_3 if shift => return Some(Event::Char('~')),
-                        VK_OEM_4 if shift => return Some(Event::Char('{')),
-                        VK_OEM_6 if shift => return Some(Event::Char('}')),
-                        VK_OEM_5 if shift => return Some(Event::Char('|')),
-                        VK_OEM_1 if shift => return Some(Event::Char(':')),
-                        VK_OEM_7 if shift => return Some(Event::Char('"')),
-                        VK_OEM_COMMA if shift => return Some(Event::Char('<')),
-                        VK_OEM_PERIOD if shift => return Some(Event::Char('>')),
-                        VK_OEM_2 if shift => return Some(Event::Char('?')),
-                        VK_OEM_PLUS => return Some(Event::Char('=')),
-                        VK_OEM_MINUS => return Some(Event::Char('-')),
-                        VK_OEM_3 => return Some(Event::Char('`')),
-                        VK_OEM_4 => return Some(Event::Char('[')),
-                        VK_OEM_6 => return Some(Event::Char(']')),
-                        VK_OEM_5 => return Some(Event::Char('\\')),
-                        VK_OEM_1 => return Some(Event::Char(';')),
-                        VK_OEM_7 => return Some(Event::Char('\'')),
-                        VK_OEM_COMMA => return Some(Event::Char(',')),
-                        VK_OEM_PERIOD => return Some(Event::Char('.')),
-                        VK_OEM_2 => return Some(Event::Char('/')),
-                        VK_F1..=VK_F24 => {
-                            return Some(Event::Function((vk - VK_F1 as i32 + 1) as u8))
+                        VK_UP => return Some(Event::Input(Key::Up, modifiers)),
+                        VK_DOWN => return Some(Event::Input(Key::Down, modifiers)),
+                        VK_LEFT => return Some(Event::Input(Key::Left, modifiers)),
+                        VK_RIGHT => return Some(Event::Input(Key::Right, modifiers)),
+                        VK_RETURN => return Some(Event::Input(Key::Enter, modifiers)),
+                        VK_SPACE => return Some(Event::Input(Key::Char(' '), modifiers)),
+                        VK_BACK => return Some(Event::Input(Key::Backspace, modifiers)),
+                        VK_ESCAPE => return Some(Event::Input(Key::Escape, modifiers)),
+                        VK_TAB => return Some(Event::Input(Key::Tab, modifiers)),
+                        VK_LWIN => return Some(Event::Input(Key::LeftWindows, modifiers)),
+                        VK_RWIN => return Some(Event::Input(Key::RightWindows, modifiers)),
+                        VK_APPS => return Some(Event::Input(Key::Menu, modifiers)),
+                        VK_SCROLL => return Some(Event::Input(Key::ScrollLock, modifiers)),
+                        VK_PAUSE => return Some(Event::Input(Key::PauseBreak, modifiers)),
+                        VK_INSERT => return Some(Event::Input(Key::Insert, modifiers)),
+                        VK_HOME => return Some(Event::Input(Key::Home, modifiers)),
+                        VK_END => return Some(Event::Input(Key::End, modifiers)),
+                        VK_PRIOR => return Some(Event::Input(Key::PageUp, modifiers)),
+                        VK_NEXT => return Some(Event::Input(Key::PageDown, modifiers)),
+                        VK_DELETE => return Some(Event::Input(Key::Delete, modifiers)),
+                        VK_SHIFT | VK_LSHIFT | VK_RSHIFT => {
+                            return Some(Event::Input(Key::Shift, modifiers))
                         }
-                        //(A-Z) (0-9)
+                        VK_CONTROL | VK_LCONTROL | VK_RCONTROL => {
+                            return Some(Event::Input(Key::Control, modifiers))
+                        }
+                        //TODO: Does not work
+                        // VK_SNAPSHOT => return Some(Event::Input(Key::PrintScreen, modifiers)),
+                        //TODO: Alt does not work
+                        // VK_MENU | VK_LMENU | VK_RMENU => {
+                        //     return Some(Event::Input(Key::Alt, modifiers))
+                        // }
+                        VK_OEM_PLUS if shift => {
+                            return Some(Event::Input(Key::Char('+'), modifiers))
+                        }
+                        VK_OEM_MINUS if shift => {
+                            return Some(Event::Input(Key::Char('_'), modifiers))
+                        }
+                        VK_OEM_3 if shift => return Some(Event::Input(Key::Char('~'), modifiers)),
+                        VK_OEM_4 if shift => return Some(Event::Input(Key::Char('{'), modifiers)),
+                        VK_OEM_6 if shift => return Some(Event::Input(Key::Char('}'), modifiers)),
+                        VK_OEM_5 if shift => return Some(Event::Input(Key::Char('|'), modifiers)),
+                        VK_OEM_1 if shift => return Some(Event::Input(Key::Char(':'), modifiers)),
+                        VK_OEM_7 if shift => return Some(Event::Input(Key::Char('"'), modifiers)),
+                        VK_OEM_COMMA if shift => {
+                            return Some(Event::Input(Key::Char('<'), modifiers))
+                        }
+                        VK_OEM_PERIOD if shift => {
+                            return Some(Event::Input(Key::Char('>'), modifiers))
+                        }
+                        VK_OEM_2 if shift => return Some(Event::Input(Key::Char('?'), modifiers)),
+                        VK_OEM_PLUS => return Some(Event::Input(Key::Char('='), modifiers)),
+                        VK_OEM_MINUS => return Some(Event::Input(Key::Char('-'), modifiers)),
+                        VK_OEM_3 => return Some(Event::Input(Key::Char('`'), modifiers)),
+                        VK_OEM_4 => return Some(Event::Input(Key::Char('['), modifiers)),
+                        VK_OEM_6 => return Some(Event::Input(Key::Char(']'), modifiers)),
+                        VK_OEM_5 => return Some(Event::Input(Key::Char('\\'), modifiers)),
+                        VK_OEM_1 => return Some(Event::Input(Key::Char(';'), modifiers)),
+                        VK_OEM_7 => return Some(Event::Input(Key::Char('\''), modifiers)),
+                        VK_OEM_COMMA => return Some(Event::Input(Key::Char(','), modifiers)),
+                        VK_OEM_PERIOD => return Some(Event::Input(Key::Char('.'), modifiers)),
+                        VK_OEM_2 => return Some(Event::Input(Key::Char('/'), modifiers)),
+                        VK_F1..=VK_F24 => {
+                            return Some(Event::Input(
+                                Key::Function((vk - VK_F1 as i32 + 1) as u8),
+                                modifiers,
+                            ))
+                        }
+                        //(A-Z,modifiers)) (0-9,modifiers))
                         0x30..=0x39 | 0x41..=0x5A => {
                             let vk = vk as u8 as char;
                             if shift {
-                                Some(Event::Char(match vk {
-                                    '1' => '!',
-                                    '2' => '@',
-                                    '3' => '#',
-                                    '4' => '$',
-                                    '5' => '%',
-                                    '6' => '^',
-                                    '7' => '&',
-                                    '8' => '*',
-                                    '9' => '(',
-                                    '0' => ')',
-                                    _ => vk,
-                                }))
+                                Some(Event::Input(
+                                    Key::Char(match vk {
+                                        '1' => '!',
+                                        '2' => '@',
+                                        '3' => '#',
+                                        '4' => '$',
+                                        '5' => '%',
+                                        '6' => '^',
+                                        '7' => '&',
+                                        '8' => '*',
+                                        '9' => '(',
+                                        '0' => ')',
+                                        _ => vk,
+                                    }),
+                                    modifiers,
+                                ))
                             } else {
                                 //I think all alphabetical inputs are UPPERCASE.
-                                Some(Event::Char(vk.to_ascii_lowercase()))
+                                Some(Event::Input(Key::Char(vk.to_ascii_lowercase()), modifiers))
                             }
                         }
-                        _ => Some(Event::Unknown(vk as u16)),
+                        _ => Some(Event::Input(Key::Unknown(vk as u16), modifiers)),
                     }
                 }
                 _ => {
