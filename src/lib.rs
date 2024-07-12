@@ -6,6 +6,7 @@ mod window;
 use core::ptr::addr_of_mut;
 use core::ptr::null;
 use core::ptr::null_mut;
+use std::sync::atomic::AtomicUsize;
 
 pub use constants::*;
 pub use gdi::*;
@@ -27,6 +28,9 @@ pub type LPCWSTR = *const u16;
 // pub type VOID = *const ();
 
 pub use core::ffi::c_void;
+
+pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub use std::sync::atomic::Ordering;
 
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
@@ -209,7 +213,8 @@ extern "system" {
     pub fn LoadCursorW(hInstance: *mut c_void, lpCursorName: *const u16) -> *mut c_void;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
     pub fn GetKeyState(nVirtKey: i32) -> i16;
-    pub fn GetCursorPos(lpPoint: *mut Point) -> i32;
+
+    pub fn GetCursorPos(point: *mut Point) -> i32;
 
     //Window Functions
     pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
@@ -236,8 +241,18 @@ extern "system" {
     pub fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
     ///Retrieves the coordinates of a window's client area.
     pub fn GetClientRect(hwnd: isize, lpRect: *mut RECT) -> i32;
-    pub fn ClientToScreen(hwnd: isize, lpPoint: *mut Point) -> BOOL;
+    pub fn ClientToScreen(hwnd: isize, lpPoint: *mut Point) -> i32;
     pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
+
+    pub fn SetWindowPos(
+        hWnd: isize,
+        hWndInsertAfter: isize,
+        X: i32,
+        Y: i32,
+        cx: i32,
+        cy: i32,
+        uFlags: u32,
+    ) -> i32;
 
     pub fn DwmGetWindowAttribute(
         hWnd: isize,
@@ -254,6 +269,8 @@ extern "system" {
     pub fn SetThreadDpiAwarenessContext(dpiContext: DpiAwareness) -> isize;
     // pub fn GetThreadDpiAwarenessContext() -> isize;
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
+
+    pub fn ReleaseCapture() -> i32;
 }
 
 #[derive(Debug, PartialEq)]
@@ -594,8 +611,10 @@ fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
                     }
                 }
                 _ => {
-                    TranslateMessage(addr_of_mut!(msg));
-                    DispatchMessageA(addr_of_mut!(msg));
+                    // TODO: Is this dispatch garbage even needed?
+                    // TranslateMessage(addr_of_mut!(msg));
+                    // DispatchMessageA(addr_of_mut!(msg));
+                    wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param);
                     None
                 }
             },

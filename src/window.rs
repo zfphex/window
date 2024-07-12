@@ -23,6 +23,26 @@ impl Window {
     pub fn screen_area(&self) -> RECT {
         screen_area(self.hwnd)
     }
+    //TODO:
+    pub fn draw(&self, buffer: &[u32], bitmap: BITMAPINFOHEADER) {
+        // unsafe {
+        //     StretchDIBits(
+        //         self.context,
+        //         0,
+        //         0,
+        //         self.width,
+        //         self.height,
+        //         0,
+        //         0,
+        //         self.width,
+        //         self.height,
+        //         buffer.as_mut_ptr() as *const c_void,
+        //         &bitmap,
+        //         0,
+        //         SRCCOPY,
+        //     )
+        // };
+    }
     pub fn event(&self) -> Option<Event> {
         //Window procedure events take presidence here.
         if let Some(event) = event(Some(self.hwnd)) {
@@ -44,7 +64,12 @@ impl Window {
 //TODO: Remove
 static mut TEST: isize = 0;
 
-unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize {
+pub unsafe extern "system" fn wnd_proc(
+    hwnd: isize,
+    msg: u32,
+    wparam: usize,
+    lparam: isize,
+) -> isize {
     if msg == WM_CREATE {
         set_dark_mode(hwnd).unwrap();
         return 0;
@@ -73,8 +98,19 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
                 println!("button: {:?} mouse pos: {:?}", msg, lparam);
             }
 
+            // let mut point = core::mem::zeroed();
+            // GetCursorPos(&mut point);
+            // let area = window.screen_area();
+
+            // dbg!(area);
+            // dbg!(point);
+
+            // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+            // SetWindowPos(hwnd, 0, area.left, area.top, point.x, point.y, 0);
+
+            // dbg!(point);
+
             return DefWindowProcA(hwnd, msg, wparam, lparam);
-            // return 1;
         }
         //Mouse moved over edge of window.
         // WM_NCMOUSEMOVE => {
@@ -83,13 +119,13 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
         // WM_ERASEBKGND => {
         //     return 1;
         // }
-        // WM_PAINT => {
-        //     return 0;
-        // }
         // WM_MOVE => {
         // window.queue.push(Event::Move);
         // return 0;
         // }
+        WM_PAINT => {
+            return 1;
+        }
         WM_SIZE => {
             window.queue.push(Event::Resize);
             return 0;
@@ -167,6 +203,7 @@ pub unsafe fn create_window(
     );
 
     assert_ne!(hwnd, 0);
+    WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
 
     //Create an event thread.
     // let handle = std::thread::spawn(move || {
