@@ -88,3 +88,19 @@ When Windows sends your application window a WM_DPICHANGED message, this message
 1. Ensure that the mouse cursor will stay in the same relative position on the Window when dragging between displays
 2. Prevent the application window from getting into a recursive dpi-change cycle where one DPI change triggers a subsequent DPI change, which triggers yet another DPI change.
 3. If you have application-specific requirements that prevent you from using the suggested rectangle that Windows provides in the WM_DPICHANGED message, see [WM_GETDPISCALEDSIZE](https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-getdpiscaledsize). This message can be used to give Windows a desired size you'd like used once the DPI change has occurred, while still avoiding the issues described above.
+
+
+### Framerate Limiting
+
+https://learn.microsoft.com/en-us/windows/win32/directcomp/compositor-clock/compositor-clock
+https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod
+https://www.gdcvault.com/play/1025031/Advanced-Graphics-Techniques-Tutorial-The
+https://learn.microsoft.com/en-us/windows/win32/comp_swapchain/comp-swapchain-examples#example-11synchronizing-presentation-using-buffer-available-events-and-handling-presentation-manager-lost-events
+https://hero.handmade.network/forums/game-discussion/t/8612-what_does_timebeginperiod_actually_do
+https://randomascii.wordpress.com/2013/07/08/windows-timer-resolution-megawatts-wasted/
+
+
+### Window cannot update while being dragged or resized
+
+https://github.com/glfw/glfw/pull/1426
+https://github.com/libsdl-org/SDL/commit/509c70c6982b6927f5a8d4fb32f9319cbaf0c2ef

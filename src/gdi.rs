@@ -9,10 +9,9 @@ pub const TRANSPARENT: i32 = 1;
 pub const RGN_AND: i32 = 1;
 
 #[link(name = "Gdi32")]
-#[allow(dead_code)]
 extern "system" {
     pub fn StretchDIBits(
-        hdc: *mut VOID,
+        hdc: *mut c_void,
         XDest: i32,
         YDest: i32,
         nDestWidth: i32,
@@ -21,7 +20,7 @@ extern "system" {
         YSrc: i32,
         nSrcWidth: i32,
         nSrcHeight: i32,
-        lpBits: *const VOID,
+        lpBits: *const c_void,
         lpBitsInfo: *const BITMAPINFO,
         iUsage: UINT,
         dwRop: DWORD,
@@ -41,42 +40,17 @@ extern "system" {
         iQuality: DWORD,
         iPitchAndFamily: DWORD,
         pszFaceName: LPCSTR,
-    ) -> *mut VOID;
-    pub fn TextOutA(hdc: *mut VOID, x: i32, y: i32, lpString: LPCSTR, c: i32) -> i32;
-    pub fn SetTextColor(hdc: *mut VOID, color: u32) -> u32;
-    pub fn SetBkMode(hdc: *mut VOID, mode: i32) -> i32;
-    pub fn CreateCompatibleDC(hdc: *mut VOID) -> *mut VOID;
-    pub fn DeleteDC(hdc: *mut VOID) -> i32;
-    pub fn SelectObject(hdc: *mut VOID, h: *mut VOID) -> *mut VOID;
+    ) -> *mut c_void;
+    pub fn TextOutA(hdc: *mut c_void, x: i32, y: i32, lpString: LPCSTR, c: i32) -> i32;
+    pub fn SetTextColor(hdc: *mut c_void, color: u32) -> u32;
+    pub fn SetBkMode(hdc: *mut c_void, mode: i32) -> i32;
+    pub fn CreateCompatibleDC(hdc: *mut c_void) -> *mut c_void;
+    pub fn DeleteDC(hdc: *mut c_void) -> i32;
+    pub fn SelectObject(hdc: *mut c_void, h: *mut c_void) -> *mut c_void;
     pub fn SetRect(lprc: *mut RECT, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
-    pub fn BeginPath(hdc: *mut VOID) -> i32;
-    pub fn EndPath(hdc: *mut VOID) -> i32;
-    pub fn SelectClipPath(hdc: *mut VOID, mode: i32) -> BOOL;
-}
-
-#[inline(always)]
-pub const fn create_bitmap(width: i32, height: i32) -> BITMAPINFO {
-    BITMAPINFO {
-        header: BITMAPINFOHEADER {
-            size: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-            width,
-            height: -height,
-            planes: 1,
-            bit_count: 32,
-            compression: 0,
-            size_image: 0,
-            x_pels_per_meter: 0,
-            y_pels_per_meter: 0,
-            clr_used: 0,
-            clr_important: 0,
-        },
-        colors: [RGBQUAD {
-            blue: 0,
-            green: 0,
-            red: 0,
-            reserved: 0,
-        }],
-    }
+    pub fn BeginPath(hdc: *mut c_void) -> i32;
+    pub fn EndPath(hdc: *mut c_void) -> i32;
+    pub fn SelectClipPath(hdc: *mut c_void, mode: i32) -> BOOL;
 }
 
 #[repr(C)]
@@ -93,6 +67,33 @@ pub struct BITMAPINFOHEADER {
     pub y_pels_per_meter: LONG,
     pub clr_used: DWORD,
     pub clr_important: DWORD,
+}
+
+impl BITMAPINFOHEADER {
+    #[inline]
+    pub const fn new(width: i32, height: i32) -> BITMAPINFO {
+        BITMAPINFO {
+            header: BITMAPINFOHEADER {
+                size: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                width,
+                height: -height,
+                planes: 1,
+                bit_count: 32,
+                compression: 0,
+                size_image: 0,
+                x_pels_per_meter: 0,
+                y_pels_per_meter: 0,
+                clr_used: 0,
+                clr_important: 0,
+            },
+            colors: [RGBQUAD {
+                blue: 0,
+                green: 0,
+                red: 0,
+                reserved: 0,
+            }],
+        }
+    }
 }
 
 #[repr(C)]

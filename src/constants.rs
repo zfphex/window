@@ -573,6 +573,36 @@ pub const SM_CARETBLINKINGENABLED: i32 = 0x2002;
 pub const SM_CONVERTIBLESLATEMODE: i32 = 0x2003;
 pub const SM_SYSTEMDOCKED: i32 = 0x2004;
 
+pub const HTERROR: isize = -2;
+pub const HTTRANSPARENT: isize = -1;
+pub const HTNOWHERE: isize = 0;
+pub const HTCLIENT: isize = 1;
+pub const HTCAPTION: isize = 2;
+pub const HTSYSMENU: isize = 3;
+pub const HTGROWBOX: isize = 4;
+pub const HTSIZE: isize = HTGROWBOX;
+pub const HTMENU: isize = 5;
+pub const HTHSCROLL: isize = 6;
+pub const HTVSCROLL: isize = 7;
+pub const HTMINBUTTON: isize = 8;
+pub const HTMAXBUTTON: isize = 9;
+pub const HTLEFT: isize = 10;
+pub const HTRIGHT: isize = 11;
+pub const HTTOP: isize = 12;
+pub const HTTOPLEFT: isize = 13;
+pub const HTTOPRIGHT: isize = 14;
+pub const HTBOTTOM: isize = 15;
+pub const HTBOTTOMLEFT: isize = 16;
+pub const HTBOTTOMRIGHT: isize = 17;
+pub const HTBORDER: isize = 18;
+pub const HTREDUCE: isize = HTMINBUTTON;
+pub const HTZOOM: isize = HTMAXBUTTON;
+pub const HTSIZEFIRST: isize = HTLEFT;
+pub const HTSIZELAST: isize = HTBOTTOMRIGHT;
+pub const HTOBJECT: isize = 19;
+pub const HTCLOSE: isize = 20;
+pub const HTHELP: isize = 21;
+
 ///////////////////////////////////////
 ///
 ///////////////////////////////////////
@@ -781,18 +811,21 @@ pub const SW_SHOWDEFAULT: i32 = 10;
 pub const SW_FORCEMINIMIZE: i32 = 11;
 pub const SW_MAX: i32 = 11;
 
-#[allow(non_camel_case_types)]
-pub type DPI_AWARENESS_CONTEXT = *mut crate::VOID;
+pub const DPI_AWARENESS_CONTEXT_UNAWARE: isize = -1;
+pub const DPI_AWARENESS_CONTEXT_SYSTEM_AWARE: isize = -2;
+pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE: isize = -3;
+pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: isize = -4;
+pub const DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: isize = -5;
 
-pub const DPI_AWARENESS_CONTEXT_UNAWARE: DPI_AWARENESS_CONTEXT = -1isize as DPI_AWARENESS_CONTEXT;
-pub const DPI_AWARENESS_CONTEXT_SYSTEM_AWARE: DPI_AWARENESS_CONTEXT =
-    -2isize as DPI_AWARENESS_CONTEXT;
-pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE: DPI_AWARENESS_CONTEXT =
-    -3isize as DPI_AWARENESS_CONTEXT;
-pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: DPI_AWARENESS_CONTEXT =
-    -4isize as DPI_AWARENESS_CONTEXT;
-pub const DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: DPI_AWARENESS_CONTEXT =
-    -5isize as DPI_AWARENESS_CONTEXT;
+#[derive(Debug)]
+#[repr(isize)]
+pub enum DpiAwareness {
+    Unaware = -1,
+    SystemAware = -2,
+    MonitorAware = -3,
+    MonitorAwareV2 = -4,
+    UnawareGDIScaled = -5,
+}
 
 #[macro_export]
 macro_rules! utf16 {

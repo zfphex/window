@@ -1,54 +1,66 @@
 use window::*;
 
+static mut WIDTH: i32 = 0;
+static mut HEIGHT: i32 = 0;
+
 //https://rust-tutorials.github.io/triangle-from-scratch/opening_a_window/win32.html
 fn main() {
     let window = unsafe { create_window("Window", 600, 400) };
-    let context = unsafe { GetDC(window.hwnd) };
-    let mut area = window.client_area();
-    let mut width = area.width() as usize;
-    let mut height = area.height() as usize;
-    let mut buffer = vec![0u32; width * height];
-    let mut bitmap = create_bitmap(width as i32, height as i32);
-    buffer.fill(0x305679);
 
-    loop {
-        let new_area = window.client_area();
-        if area != new_area {
-            area = new_area;
-            width = area.width() as usize;
-            height = area.height() as usize;
-            buffer.clear();
-            buffer.resize(width * height, 0);
-            buffer.fill(0x305679);
-            bitmap = create_bitmap(width as i32, height as i32);
+    let hwnd = window.hwnd.clone();
+    let area = window.client_area();
+    let mut width = area.width();
+    let mut height = area.height();
+    unsafe {
+        WIDTH = width;
+        HEIGHT = height;
+    }
 
-            println!(
-                "resized: client: {:?}\nscreen: {:?} ",
-                area,
-                screen_area(window.hwnd)
-            );
-        }
+    std::thread::spawn(move || unsafe {
+        let context = GetDC(hwnd);
+        let mut bitmap = BITMAPINFOHEADER::new(width, height);
+        let mut buffer = vec![0u32; width as usize * height as usize];
+        buffer.fill(0x305679);
 
-        unsafe {
+        loop {
+            if width != WIDTH || height != HEIGHT {
+                width = WIDTH;
+                height = HEIGHT;
+                buffer.clear();
+                buffer.resize(width as usize * height as usize, 0);
+                buffer.fill(0x305679);
+                bitmap = BITMAPINFOHEADER::new(width, height);
+            }
+
             StretchDIBits(
                 context,
                 0,
                 0,
-                width as i32,
-                height as i32,
+                width,
+                height,
                 0,
                 0,
-                width as i32,
-                height as i32,
-                buffer.as_mut_ptr() as *const VOID,
+                width,
+                height,
+                buffer.as_mut_ptr() as *const c_void,
                 &bitmap,
                 0,
                 SRCCOPY,
-            )
-        };
+            );
+        }
+    });
 
+    loop {
+        // dbg!(window.client_area());
         match window.event() {
-            Some(Event::Quit | Event::Input(Escape, _)) => break,
+            Some(Event::Resize) => {
+                let area = window.client_area();
+                unsafe {
+                    WIDTH = area.width();
+                    HEIGHT = area.height();
+                }
+            }
+            Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Dpi(dpi)) => {
                 println!("Dpi: {:?}", dpi);
                 println!("Scale factor: {}", window.scale_factor());

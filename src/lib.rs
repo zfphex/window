@@ -10,7 +10,6 @@ use core::ptr::null_mut;
 pub use constants::*;
 pub use gdi::*;
 pub use window::*;
-pub use Key::*;
 
 pub type HWND = isize;
 pub type WPARAM = usize;
@@ -26,7 +25,8 @@ pub type LPCWSTR = *const u16;
 
 // pub enum VOID {}
 // pub type VOID = *const ();
-pub type VOID = std::ffi::c_void;
+
+pub use core::ffi::c_void;
 
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
@@ -155,8 +155,6 @@ impl Default for WNDCLASSA {
     }
 }
 
-static mut QUIT: bool = false;
-
 #[link(name = "user32")]
 extern "system" {
     ///Return value
@@ -188,19 +186,15 @@ extern "system" {
         lpparam: *const std::ffi::c_void,
     ) -> isize;
     pub fn PeekMessageA(
-        lpmsg: *mut MSG,
+        msg: *mut MSG,
         hwnd: isize,
-        wmsgfiltermin: u32,
-        wmsgfiltermax: u32,
-        wremovemsg: u32,
+        msg_filter_min: u32,
+        msg_filter_max: u32,
+        remove_msg: u32,
     ) -> i32;
     ///GetMessage blocks until a message is posted before returning.
-    pub fn GetMessageA(
-        lpMsg: *const MSG,
-        hWnd: isize,
-        wMsgFilterMin: u32,
-        wMsgFilterMax: u32,
-    ) -> i32;
+    pub fn GetMessageA(msg: *mut MSG, hwnd: isize, msg_filter_min: u32, msg_filter_max: u32)
+        -> i32;
     /// Indicates to the system that a thread has made a request to terminate (quit).
     /// It is typically used in response to a WM_DESTROY message.
     pub fn PostQuitMessage(nExitCode: i32);
@@ -208,11 +202,11 @@ extern "system" {
     pub fn DispatchMessageA(lpMsg: *const MSG) -> isize;
     pub fn TranslateMessage(lpMsg: *const MSG) -> i32;
     pub fn GetLastError() -> u32;
-    pub fn GetProcAddress(hModule: *mut VOID, lpProcName: *const i8) -> *mut VOID;
-    pub fn LoadLibraryA(lpFileName: *const i8) -> *mut VOID;
+    pub fn GetProcAddress(hModule: *mut c_void, lpProcName: *const i8) -> *mut c_void;
+    pub fn LoadLibraryA(lpFileName: *const i8) -> *mut c_void;
     ///The GetDC function retrieves a handle to a device context (DC) for the client area of a specified window or for the entire screen.
-    pub fn GetDC(hwnd: isize) -> *mut VOID;
-    pub fn LoadCursorW(hInstance: *mut VOID, lpCursorName: *const u16) -> *mut VOID;
+    pub fn GetDC(hwnd: isize) -> *mut c_void;
+    pub fn LoadCursorW(hInstance: *mut c_void, lpCursorName: *const u16) -> *mut c_void;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
     pub fn GetKeyState(nVirtKey: i32) -> i16;
     pub fn GetCursorPos(lpPoint: *mut Point) -> i32;
@@ -248,7 +242,7 @@ extern "system" {
     pub fn DwmGetWindowAttribute(
         hWnd: isize,
         dwAttribute: u32,
-        pvAttribute: *mut VOID,
+        pvAttribute: *mut c_void,
         cbAttribute: u32,
     ) -> i32;
 
@@ -257,9 +251,8 @@ extern "system" {
     //TODO: Remove
     // pub fn SetRect(lprc: *mut WinRect, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
 
-    pub fn SetThreadDpiAwarenessContext(dpiContext: DPI_AWARENESS_CONTEXT)
-        -> DPI_AWARENESS_CONTEXT;
-    pub fn GetThreadDpiAwarenessContext() -> DPI_AWARENESS_CONTEXT;
+    pub fn SetThreadDpiAwarenessContext(dpiContext: DpiAwareness) -> isize;
+    // pub fn GetThreadDpiAwarenessContext() -> isize;
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
 }
 
@@ -405,10 +398,6 @@ pub fn desktop_area() -> RECT {
 // }
 
 pub fn event(hwnd: Option<isize>) -> Option<Event> {
-    if unsafe { QUIT } {
-        return Some(Event::Quit);
-    }
-
     let mut msg = MSG::new();
     let result =
         unsafe { PeekMessageA(addr_of_mut!(msg), hwnd.unwrap_or_default(), 0, 0, PM_REMOVE) };
@@ -416,10 +405,6 @@ pub fn event(hwnd: Option<isize>) -> Option<Event> {
 }
 
 pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
-    if unsafe { QUIT } {
-        return Some(Event::Quit);
-    }
-
     let mut msg = MSG::new();
     let result = unsafe { GetMessageA(addr_of_mut!(msg), hwnd.unwrap_or_default(), 0, 0) };
     handle_msg(msg, result)

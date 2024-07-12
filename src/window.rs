@@ -1,5 +1,6 @@
 use crate::*;
 use crossbeam_queue::SegQueue;
+use std::pin::Pin;
 
 #[derive(Debug)]
 pub struct Window {
@@ -30,6 +31,14 @@ impl Window {
 
         self.queue.pop()
     }
+    pub fn event_new(&self) -> Option<Event> {
+        let mut msg = MSG::new();
+        //PeekMessage and GetMessage must be run on the current thread.
+        let result = unsafe { PeekMessageA(addr_of_mut!(msg), self.hwnd, 0, 0, PM_REMOVE) };
+        //TODO: Push msg to new thread and handle there.
+
+        self.queue.pop()
+    }
 }
 
 //TODO: Remove
@@ -53,24 +62,34 @@ unsafe extern "system" fn wnd_proc(hwnd: isize, msg: u32, wparam: usize, lparam:
 
     match msg {
         WM_DESTROY | WM_CLOSE => {
-            // window.queue.push(Event::Quit);
+            window.queue.push(Event::Quit);
+            return 0;
+        }
+        //Mouse button down on edge of window.
+        //This is being called when resizing and causing the window to block.
+        WM_NCLBUTTONDOWN => {
+            //User clicked on the title bar.
+            if wparam == HTCAPTION as usize {
+                println!("button: {:?} mouse pos: {:?}", msg, lparam);
+            }
 
-            //Quit as fast as possible.
-            QUIT = true;
-            return 0;
+            return DefWindowProcA(hwnd, msg, wparam, lparam);
+            // return 1;
         }
-
-        WM_ERASEBKGND => {
-            return 1;
-        }
-        WM_PAINT => {
-            //The BeginPaint function automatically validates the entire client area.
-            return 0;
-        }
-        WM_MOVE => {
-            // window.queue.push(Event::Move);
-            return 0;
-        }
+        //Mouse moved over edge of window.
+        // WM_NCMOUSEMOVE => {
+        //     return 1;
+        // }
+        // WM_ERASEBKGND => {
+        //     return 1;
+        // }
+        // WM_PAINT => {
+        //     return 0;
+        // }
+        // WM_MOVE => {
+        // window.queue.push(Event::Move);
+        // return 0;
+        // }
         WM_SIZE => {
             window.queue.push(Event::Resize);
             return 0;
@@ -90,12 +109,12 @@ pub unsafe fn create_window(
     // y: Option<i32>,
     width: i32,
     height: i32,
-) -> std::pin::Pin<Box<Window>> {
+) -> Pin<Box<Window>> {
     const WINDOW_STYLE: u32 = 0;
     //Basically every window option that people use nowadays is completely pointless.
     const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
-    if SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) as u32 == 0 {
+    if SetThreadDpiAwarenessContext(DpiAwareness::MonitorAwareV2) == 0 {
         panic!("Only Windows 10 (1607) or later is supported.")
     };
 
@@ -148,6 +167,11 @@ pub unsafe fn create_window(
     );
 
     assert_ne!(hwnd, 0);
+
+    //Create an event thread.
+    // let handle = std::thread::spawn(move || {
+    //     //
+    // });
 
     //Safety: This *should* be pinned.
     let window = Box::pin(Window {
