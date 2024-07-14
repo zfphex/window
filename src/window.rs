@@ -51,14 +51,14 @@ impl Window {
 
         self.queue.pop()
     }
-    pub fn event_new(&self) -> Option<Event> {
-        let mut msg = MSG::new();
-        //PeekMessage and GetMessage must be run on the current thread.
-        let result = unsafe { PeekMessageA(addr_of_mut!(msg), self.hwnd, 0, 0, PM_REMOVE) };
-        //TODO: Push msg to new thread and handle there.
+    // pub fn event_new(&self) -> Option<Event> {
+    //     let mut msg = MSG::new();
+    //     //PeekMessage and GetMessage must be run on the current thread.
+    //     let result = unsafe { PeekMessageA(addr_of_mut!(msg), self.hwnd, 0, 0, PM_REMOVE) };
+    //     //TODO: Push msg to new thread and handle there.
 
-        self.queue.pop()
-    }
+    //     self.queue.pop()
+    // }
 }
 
 pub unsafe extern "system" fn wnd_proc(
@@ -114,13 +114,17 @@ pub fn create_window(
         let title = std::ffi::CString::new(title).unwrap();
 
         let wnd_class = WNDCLASSA {
-            wnd_proc: Some(wnd_proc),
-            class_name: title.as_ptr() as *const u8,
             style: WINDOW_STYLE,
-            background: 0,
+            wnd_proc: Some(wnd_proc),
+            cls_extra: 0,
+            wnd_extra: 0,
+            instance: 0,
+            icon: 0,
             //Prevent cursor from changing when loading.
             cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
-            ..Default::default()
+            background: 0,
+            menu_name: core::mem::zeroed(),
+            class_name: title.as_ptr() as *const u8,
         };
 
         let _ = RegisterClassA(&wnd_class);

@@ -3,7 +3,6 @@ mod constants;
 mod gdi;
 mod window;
 
-use core::ptr::addr_of_mut;
 use core::ptr::null;
 use core::ptr::null_mut;
 use std::sync::atomic::AtomicUsize;
@@ -142,39 +141,8 @@ pub struct WNDCLASSA {
     pub class_name: *const u8,
 }
 
-impl Default for WNDCLASSA {
-    fn default() -> Self {
-        Self {
-            style: Default::default(),
-            wnd_proc: Default::default(),
-            cls_extra: Default::default(),
-            wnd_extra: Default::default(),
-            instance: Default::default(),
-            icon: Default::default(),
-            cursor: Default::default(),
-            background: Default::default(),
-            menu_name: unsafe { std::mem::zeroed() },
-            class_name: unsafe { std::mem::zeroed() },
-        }
-    }
-}
-
 #[link(name = "user32")]
 extern "system" {
-    ///Return value
-    ///
-    ///Type: `HWND`
-    ///
-    ///If the function succeeds, the return value is a handle to the new window.
-    ///
-    ///If the function fails, the return value is `NULL`. To get extended error information, call GetLastError.
-    ///
-    ///This function typically fails for one of the following reasons:
-    ///
-    ///- an invalid parameter value
-    ///- the system class was registered by a different module
-    ///- The WH_CBT hook is installed and returns a failure code
-    ///- if one of the controls in the dialog template is not registered, or its window window procedure fails WM_CREATE or WM_NCCREATE
     pub fn CreateWindowExA(
         dwexstyle: u32,
         lpclassname: *const u8,
@@ -196,11 +164,8 @@ extern "system" {
         msg_filter_max: u32,
         remove_msg: u32,
     ) -> i32;
-    ///GetMessage blocks until a message is posted before returning.
     pub fn GetMessageA(msg: *mut MSG, hwnd: isize, msg_filter_min: u32, msg_filter_max: u32)
         -> i32;
-    /// Indicates to the system that a thread has made a request to terminate (quit).
-    /// It is typically used in response to a WM_DESTROY message.
     pub fn PostQuitMessage(nExitCode: i32);
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
     pub fn DispatchMessageA(lpMsg: *const MSG) -> isize;
@@ -208,42 +173,29 @@ extern "system" {
     pub fn GetLastError() -> u32;
     pub fn GetProcAddress(hModule: *mut c_void, lpProcName: *const i8) -> *mut c_void;
     pub fn LoadLibraryA(lpFileName: *const i8) -> *mut c_void;
-    ///The GetDC function retrieves a handle to a device context (DC) for the client area of a specified window or for the entire screen.
     pub fn GetDC(hwnd: isize) -> *mut c_void;
     pub fn LoadCursorW(hInstance: *mut c_void, lpCursorName: *const u16) -> *mut c_void;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
     pub fn GetKeyState(nVirtKey: i32) -> i16;
-
     pub fn GetCursorPos(point: *mut Point) -> i32;
-
-    //Window Functions
     pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     pub fn GetWindow(hwnd: isize, uCmd: u32) -> isize;
     pub fn DestroyWindow(hwnd: isize) -> i32;
     pub fn GetForegroundWindow() -> isize;
-
     pub fn GetWindowLongPtrW(hwnd: isize, nIndex: i32) -> isize;
     pub fn SetWindowLongPtrW(hwnd: isize, nIndex: i32, dwNewLong: isize) -> isize;
-
     pub fn GetWindowLongPtrA(hwnd: isize, nIndex: i32) -> isize;
     pub fn SetWindowLongPtrA(hwnd: isize, nIndex: i32, dwNewLong: isize) -> isize;
-
     pub fn GetWindowLongA(hwnd: isize, nIndex: i32) -> LONG;
     pub fn SetWindowLongA(hwnd: isize, nIndex: i32, dwNewLong: LONG) -> LONG;
-
     pub fn ShowWindow(hwnd: isize, nCmdShow: i32) -> BOOL;
     pub fn GetWindowInfo(hwnd: isize, pwi: *mut WindowInfo) -> i32;
-    ///Calculates the required size of the window rectangle, based on the desired size of the client rectangle. The window rectangle can then be passed to the CreateWindowEx function to create a window whose client area is the desired size.
     pub fn AdjustWindowRectEx(lpRect: *mut RECT, dwStyle: u32, bMenu: i32, dwExStyle: u32) -> i32;
     pub fn GetDesktopWindow() -> isize;
-
-    ///Retrieves the screen coordinates of the specified window.
     pub fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
-    ///Retrieves the coordinates of a window's client area.
     pub fn GetClientRect(hwnd: isize, lpRect: *mut RECT) -> i32;
     pub fn ClientToScreen(hwnd: isize, lpPoint: *mut Point) -> i32;
     pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
-
     pub fn SetWindowPos(
         hWnd: isize,
         hWndInsertAfter: isize,
@@ -253,23 +205,16 @@ extern "system" {
         cy: i32,
         uFlags: u32,
     ) -> i32;
-
     pub fn DwmGetWindowAttribute(
         hWnd: isize,
         dwAttribute: u32,
         pvAttribute: *mut c_void,
         cbAttribute: u32,
     ) -> i32;
-
     pub fn GetSystemMetricsForDpi(nIndex: i32, dpi: u32) -> i32;
-
-    //TODO: Remove
-    // pub fn SetRect(lprc: *mut WinRect, xLeft: i32, yTop: i32, xRight: i32, yBottom: i32) -> BOOL;
-
     pub fn SetThreadDpiAwarenessContext(dpiContext: DpiAwareness) -> isize;
     // pub fn GetThreadDpiAwarenessContext() -> isize;
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
-
     pub fn ReleaseCapture() -> i32;
 }
 
@@ -283,11 +228,6 @@ pub enum Modifier {
     RightShift,
     RightAlt,
 }
-
-// pub struct Key {
-//     code: u32,
-//     modifier: Modifier,
-// }
 
 #[derive(Debug, PartialEq)]
 pub enum Event {
@@ -417,14 +357,13 @@ pub fn desktop_area() -> RECT {
 
 pub fn event(hwnd: Option<isize>) -> Option<Event> {
     let mut msg = MSG::new();
-    let result =
-        unsafe { PeekMessageA(addr_of_mut!(msg), hwnd.unwrap_or_default(), 0, 0, PM_REMOVE) };
+    let result = unsafe { PeekMessageA(&mut msg, hwnd.unwrap_or_default(), 0, 0, PM_REMOVE) };
     handle_msg(msg, result)
 }
 
 pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
     let mut msg = MSG::new();
-    let result = unsafe { GetMessageA(addr_of_mut!(msg), hwnd.unwrap_or_default(), 0, 0) };
+    let result = unsafe { GetMessageA(&mut msg, hwnd.unwrap_or_default(), 0, 0) };
     handle_msg(msg, result)
 }
 
@@ -438,7 +377,7 @@ pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
 
 //Note that some messages like WM_MOVE and WM_SIZE will not be included here.
 //wndproc must be used for window related messages.
-fn handle_msg(mut msg: MSG, result: i32) -> Option<Event> {
+fn handle_msg(msg: MSG, result: i32) -> Option<Event> {
     unsafe {
         //Mouse position.
         // let (x, y) = (msg.pt.x, msg.pt.y);
