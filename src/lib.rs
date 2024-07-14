@@ -295,7 +295,8 @@ pub enum Event {
     //(0, 0) is top left of window.
     Mouse(i32, i32),
     Move,
-    Resize,
+    // This event is only triggerd after a resize, so it's not very useful.
+    // Resize,
     Dpi(usize),
     Input(Key, Modifiers),
 }

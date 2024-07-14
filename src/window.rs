@@ -61,9 +61,6 @@ impl Window {
     }
 }
 
-//TODO: Remove
-static mut TEST: isize = 0;
-
 pub unsafe extern "system" fn wnd_proc(
     hwnd: isize,
     msg: u32,
@@ -76,8 +73,6 @@ pub unsafe extern "system" fn wnd_proc(
     }
 
     let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Window;
-    assert_eq!(ptr as isize, TEST);
-
     if ptr.is_null() {
         return DefWindowProcA(hwnd, msg, wparam, lparam);
     }
@@ -90,46 +85,6 @@ pub unsafe extern "system" fn wnd_proc(
             window.queue.push(Event::Quit);
             return 0;
         }
-        //Mouse button down on edge of window.
-        //This is being called when resizing and causing the window to block.
-        WM_NCLBUTTONDOWN => {
-            //User clicked on the title bar.
-            if wparam == HTCAPTION as usize {
-                println!("button: {:?} mouse pos: {:?}", msg, lparam);
-            }
-
-            // let mut point = core::mem::zeroed();
-            // GetCursorPos(&mut point);
-            // let area = window.screen_area();
-
-            // dbg!(area);
-            // dbg!(point);
-
-            // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
-            // SetWindowPos(hwnd, 0, area.left, area.top, point.x, point.y, 0);
-
-            // dbg!(point);
-
-            return DefWindowProcA(hwnd, msg, wparam, lparam);
-        }
-        //Mouse moved over edge of window.
-        // WM_NCMOUSEMOVE => {
-        //     return 1;
-        // }
-        // WM_ERASEBKGND => {
-        //     return 1;
-        // }
-        // WM_MOVE => {
-        // window.queue.push(Event::Move);
-        // return 0;
-        // }
-        WM_PAINT => {
-            return 1;
-        }
-        WM_SIZE => {
-            window.queue.push(Event::Resize);
-            return 0;
-        }
         //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-getdpiscaledsize
         WM_GETDPISCALEDSIZE => {
             window.queue.push(Event::Dpi(wparam));
@@ -139,88 +94,84 @@ pub unsafe extern "system" fn wnd_proc(
     }
 }
 
-pub unsafe fn create_window(
+pub fn create_window(
     title: &str,
     // x: Option<i32>,
     // y: Option<i32>,
     width: i32,
     height: i32,
 ) -> Pin<Box<Window>> {
-    const WINDOW_STYLE: u32 = 0;
-    //Basically every window option that people use nowadays is completely pointless.
-    const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+    unsafe {
+        const WINDOW_STYLE: u32 = 0;
+        //Basically every window option that people use nowadays is completely pointless.
+        const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
-    if SetThreadDpiAwarenessContext(DpiAwareness::MonitorAwareV2) == 0 {
-        panic!("Only Windows 10 (1607) or later is supported.")
-    };
+        if SetThreadDpiAwarenessContext(DpiAwareness::MonitorAwareV2) == 0 {
+            panic!("Only Windows 10 (1607) or later is supported.")
+        };
 
-    //Title must be null terminated.
-    let title = std::ffi::CString::new(title).unwrap();
+        //Title must be null terminated.
+        let title = std::ffi::CString::new(title).unwrap();
 
-    let wnd_class = WNDCLASSA {
-        wnd_proc: Some(wnd_proc),
-        class_name: title.as_ptr() as *const u8,
-        style: WINDOW_STYLE,
-        background: 0,
-        //Prevent cursor from changing when loading.
-        cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
-        ..Default::default()
-    };
+        let wnd_class = WNDCLASSA {
+            wnd_proc: Some(wnd_proc),
+            class_name: title.as_ptr() as *const u8,
+            style: WINDOW_STYLE,
+            background: 0,
+            //Prevent cursor from changing when loading.
+            cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
+            ..Default::default()
+        };
 
-    let _ = RegisterClassA(&wnd_class);
+        let _ = RegisterClassA(&wnd_class);
 
-    //Imagine that the users wants a window that is 800x600.
-    //`CreateWindow` takes in screen coordinates instead of client coordiantes.
-    //Which means that it will set the window size including the title bar and borders etc.
-    //We must convert the requested client coordinates to screen coordinates.
+        //Imagine that the users wants a window that is 800x600.
+        //`CreateWindow` takes in screen coordinates instead of client coordiantes.
+        //Which means that it will set the window size including the title bar and borders etc.
+        //We must convert the requested client coordinates to screen coordinates.
 
-    //TODO: What is this value at different DPI's?
-    // const WINDOW_PADDING_96_DPI: i32 = 7;
-    //         let rect = RECT {
-    //             left: x - WINDOW_PADDING_96_DPI,
-    //             top: y,
-    //             right: x + width,
-    //             bottom: y + height,
-    //         };
+        //TODO: What is this value at different DPI's?
+        // const WINDOW_PADDING_96_DPI: i32 = 7;
+        //         let rect = RECT {
+        //             left: x - WINDOW_PADDING_96_DPI,
+        //             top: y,
+        //             right: x + width,
+        //             bottom: y + height,
+        //         };
 
-    let hwnd = CreateWindowExA(
-        0,
-        title.as_ptr() as *const u8,
-        title.as_ptr() as *const u8,
-        WINDOW_OPTIONS,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        width,
-        height,
-        // rect.left,
-        // rect.top,
-        // rect.width(),
-        // rect.height(),
-        0,
-        0,
-        0,
-        null(),
-    );
+        let hwnd = CreateWindowExA(
+            0,
+            title.as_ptr() as *const u8,
+            title.as_ptr() as *const u8,
+            WINDOW_OPTIONS,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            width,
+            height,
+            // rect.left,
+            // rect.top,
+            // rect.width(),
+            // rect.height(),
+            0,
+            0,
+            0,
+            null(),
+        );
 
-    assert_ne!(hwnd, 0);
-    WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
+        assert_ne!(hwnd, 0);
+        WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
 
-    //Create an event thread.
-    // let handle = std::thread::spawn(move || {
-    //     //
-    // });
+        //Safety: This *should* be pinned.
+        let window = Box::pin(Window {
+            hwnd,
+            screen_mouse_pos: (0, 0),
+            queue: SegQueue::new(),
+        });
 
-    //Safety: This *should* be pinned.
-    let window = Box::pin(Window {
-        hwnd,
-        screen_mouse_pos: (0, 0),
-        queue: SegQueue::new(),
-    });
+        let addr = &*window as *const Window;
+        let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
+        assert!(result <= 0);
 
-    let addr = &*window as *const Window;
-    let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
-    assert!(result <= 0);
-    TEST = addr as isize;
-
-    window
+        window
+    }
 }
