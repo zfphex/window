@@ -29,7 +29,7 @@ Source: [Location 0, 0 not working on windows 10
 ](https://github.com/dotnet/winforms/issues/4776#issuecomment-1227637666)
 
 
-## WndProc Hell and Message Handling
+## Message Handling
 
 Not all messages can be intercepted using `PeekMessage`, some messages like `WM_MOVE` and `WM_RESIZE` must be handled using the specified window callback. 
 
@@ -79,8 +79,6 @@ To enable sub-process DPI awareness, call [SetThreadDpiAwarenessContext](https:/
 
 [SetThreadDpiAwarenessContext](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setthreaddpiawarenesscontext)
 
-
-
 ### Common Pitfalls
 
 When Windows sends your application window a WM_DPICHANGED message, this message includes a suggested rectangle that you should use to resize your window. It is critical that your application use this rectangle to resize itself, as this will:
@@ -98,9 +96,3 @@ https://www.gdcvault.com/play/1025031/Advanced-Graphics-Techniques-Tutorial-The
 https://learn.microsoft.com/en-us/windows/win32/comp_swapchain/comp-swapchain-examples#example-11synchronizing-presentation-using-buffer-available-events-and-handling-presentation-manager-lost-events
 https://hero.handmade.network/forums/game-discussion/t/8612-what_does_timebeginperiod_actually_do
 https://randomascii.wordpress.com/2013/07/08/windows-timer-resolution-megawatts-wasted/
-
-
-### Window cannot update while being dragged or resized
-
-https://github.com/glfw/glfw/pull/1426
-https://github.com/libsdl-org/SDL/commit/509c70c6982b6927f5a8d4fb32f9319cbaf0c2ef

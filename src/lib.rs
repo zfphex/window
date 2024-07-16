@@ -26,7 +26,7 @@ pub type LPCWSTR = *const u16;
 // pub enum VOID {}
 // pub type VOID = *const ();
 
-pub use core::ffi::c_void;
+use core::ffi::c_void;
 
 pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub use std::sync::atomic::Ordering;

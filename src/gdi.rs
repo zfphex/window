@@ -69,7 +69,14 @@ pub struct BITMAPINFOHEADER {
     pub clr_important: DWORD,
 }
 
-impl BITMAPINFOHEADER {
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct BITMAPINFO {
+    pub header: BITMAPINFOHEADER,
+    pub colors: [RGBQUAD; 1],
+}
+
+impl BITMAPINFO {
     #[inline]
     pub const fn new(width: i32, height: i32) -> BITMAPINFO {
         BITMAPINFO {
@@ -94,13 +101,6 @@ impl BITMAPINFOHEADER {
             }],
         }
     }
-}
-
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct BITMAPINFO {
-    pub header: BITMAPINFOHEADER,
-    pub colors: [RGBQUAD; 1],
 }
 
 #[repr(C)]

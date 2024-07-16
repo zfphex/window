@@ -6,6 +6,11 @@ use std::pin::Pin;
 pub struct Window {
     pub hwnd: isize,
     pub screen_mouse_pos: (i32, i32),
+
+    //TODO: Remove, this is super overkill.
+    //The only events going through this now are Quit and Dpi.
+    //I think an array or vec with small capacity would be fine.
+    //I do like that it has interior mutability since it's atomic.
     pub queue: SegQueue<Event>,
 }
 
@@ -45,20 +50,12 @@ impl Window {
     }
     pub fn event(&self) -> Option<Event> {
         //Window procedure events take presidence here.
-        if let Some(event) = event(Some(self.hwnd)) {
-            self.queue.push(event)
-        }
+        if let Some(event) = self.queue.pop() {
+            return Some(event);
+        };
 
-        self.queue.pop()
+        event(Some(self.hwnd))
     }
-    // pub fn event_new(&self) -> Option<Event> {
-    //     let mut msg = MSG::new();
-    //     //PeekMessage and GetMessage must be run on the current thread.
-    //     let result = unsafe { PeekMessageA(addr_of_mut!(msg), self.hwnd, 0, 0, PM_REMOVE) };
-    //     //TODO: Push msg to new thread and handle there.
-
-    //     self.queue.pop()
-    // }
 }
 
 pub unsafe extern "system" fn wnd_proc(
