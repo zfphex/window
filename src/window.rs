@@ -29,7 +29,7 @@ impl Window {
         screen_area(self.hwnd)
     }
     //TODO:
-    pub fn draw(&self, buffer: &[u32], bitmap: BITMAPINFOHEADER) {
+    pub fn draw(&self, _buffer: &[u32], _bitmap: BITMAPINFO) {
         // unsafe {
         //     StretchDIBits(
         //         self.context,

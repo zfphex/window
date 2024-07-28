@@ -42,7 +42,7 @@ fn main() {
         let mut height = area.height();
 
         let context = GetDC(hwnd);
-        let mut bitmap = BITMAPINFOHEADER::new(width, height);
+        let mut bitmap = BITMAPINFO::new(width, height);
         let buffer_size = width as usize * height as usize;
         let mut buffer = vec![0u32; buffer_size];
 
@@ -59,7 +59,7 @@ fn main() {
                 buffer.clear();
                 buffer.resize(width as usize * height as usize, 0);
                 buffer.fill(fill_color);
-                bitmap = BITMAPINFOHEADER::new(width, height);
+                bitmap = BITMAPINFO::new(width, height);
             }
 
             t += 0.005;
