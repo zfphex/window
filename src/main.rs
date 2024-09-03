@@ -1,4 +1,4 @@
-// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use core::ffi::c_void;
 use window::*;
 
@@ -16,6 +16,8 @@ pub const fn g(color: u32) -> u8 {
 pub const fn b(color: u32) -> u8 {
     (color & 0xFF) as u8
 }
+
+#[inline(always)]
 pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     (a * (1.0 - t)) + (b * t)
 }
