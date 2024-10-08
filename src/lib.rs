@@ -356,17 +356,17 @@ pub fn desktop_area() -> RECT {
 //     }
 // }
 
-pub fn event(hwnd: Option<isize>) -> Option<Event> {
+fn event(hwnd: Option<isize>) -> Option<Event> {
     let mut msg = MSG::new();
     let result = unsafe { PeekMessageA(&mut msg, hwnd.unwrap_or_default(), 0, 0, PM_REMOVE) };
     handle_msg(msg, result)
 }
 
-pub fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
-    let mut msg = MSG::new();
-    let result = unsafe { GetMessageA(&mut msg, hwnd.unwrap_or_default(), 0, 0) };
-    handle_msg(msg, result)
-}
+// fn event_blocking(hwnd: Option<isize>) -> Option<Event> {
+//     let mut msg = MSG::new();
+//     let result = unsafe { GetMessageA(&mut msg, hwnd.unwrap_or_default(), 0, 0) };
+//     handle_msg(msg, result)
+// }
 
 //Event handling should probably happen in the UI library.
 //It doesn't really make sense to return an event every time.
