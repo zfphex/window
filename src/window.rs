@@ -28,6 +28,38 @@ impl Window {
     pub fn screen_area(&self) -> RECT {
         screen_area(self.hwnd)
     }
+    pub fn borderless(&mut self) {
+        unsafe {
+            SetWindowLongPtrA(self.hwnd, GWL_STYLE, (WS_POPUP | WS_VISIBLE) as isize);
+
+            //Update the window area without moving or resizing it.
+            SetWindowPos(
+                self.hwnd,
+                0,
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE,
+            );
+        };
+    }
+    pub fn reset_style(&mut self) {
+        unsafe {
+            SetWindowLongPtrA(self.hwnd, GWL_STYLE, DEFAULT_WINDOW_STYLE as isize);
+
+            //Update the window area without moving or resizing it.
+            SetWindowPos(
+                self.hwnd,
+                0,
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE,
+            );
+        };
+    }
     //TODO:
     pub fn draw(&self, _buffer: &[u32], _bitmap: BITMAPINFO) {
         // unsafe {
@@ -91,6 +123,9 @@ pub unsafe extern "system" fn wnd_proc(
     }
 }
 
+pub const DEFAULT_WINDOW_STYLE: u32 =
+    WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE;
+
 pub fn create_window(
     title: &str,
     // x: Option<i32>,
@@ -99,10 +134,6 @@ pub fn create_window(
     height: i32,
 ) -> Pin<Box<Window>> {
     unsafe {
-        const WINDOW_STYLE: u32 = 0;
-        //Basically every window option that people use nowadays is completely pointless.
-        const WINDOW_OPTIONS: u32 = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
-
         if SetThreadDpiAwarenessContext(DpiAwareness::MonitorAwareV2) == 0 {
             panic!("Only Windows 10 (1607) or later is supported.")
         };
@@ -111,7 +142,7 @@ pub fn create_window(
         let title = std::ffi::CString::new(title).unwrap();
 
         let wnd_class = WNDCLASSA {
-            style: WINDOW_STYLE,
+            style: 0,
             wnd_proc: Some(wnd_proc),
             cls_extra: 0,
             wnd_extra: 0,
@@ -144,7 +175,7 @@ pub fn create_window(
             0,
             title.as_ptr() as *const u8,
             title.as_ptr() as *const u8,
-            WINDOW_OPTIONS,
+            DEFAULT_WINDOW_STYLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             width,

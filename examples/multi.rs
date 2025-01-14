@@ -32,10 +32,11 @@ pub fn lerp_hex(color1: u32, color2: u32, t: f32) -> u32 {
 }
 
 fn main() {
-    let mut window = create_window("Window", 600, 400);
-    window.borderless();
-
+    let window = create_window("Window", 600, 400);
     let hwnd = window.hwnd.clone();
+
+    //TODO: I want each window to have it's own framebuffer.
+    // window.draw(buffer);
 
     std::thread::spawn(move || unsafe {
         let mut area = client_area(hwnd);
@@ -51,7 +52,7 @@ fn main() {
         let mut fill_color = 0x305679;
 
         loop {
-            let new_area = screen_area(hwnd);
+            let new_area = client_area(hwnd);
             if new_area != area {
                 area = new_area;
                 width = area.width();

@@ -817,6 +817,25 @@ pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE: isize = -3;
 pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: isize = -4;
 pub const DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: isize = -5;
 
+pub const GWL_EXSTYLE: i32 = -20;
+pub const GWL_STYLE: i32 = -16;
+
+pub const SWP_NOSIZE: u32 = 0x0001;
+pub const SWP_NOMOVE: u32 = 0x0002;
+pub const SWP_NOZORDER: u32 = 0x0004;
+pub const SWP_NOREDRAW: u32 = 0x0008;
+pub const SWP_NOACTIVATE: u32 = 0x0010;
+pub const SWP_FRAMECHANGED: u32 = 0x0020;
+pub const SWP_SHOWWINDOW: u32 = 0x0040;
+pub const SWP_HIDEWINDOW: u32 = 0x0080;
+pub const SWP_NOCOPYBITS: u32 = 0x0100;
+pub const SWP_NOOWNERZORDER: u32 = 0x0200;
+pub const SWP_NOSENDCHANGING: u32 = 0x0400;
+pub const SWP_DRAWFRAME: u32 = SWP_FRAMECHANGED;
+pub const SWP_NOREPOSITION: u32 = SWP_NOOWNERZORDER;
+pub const SWP_DEFERERASE: u32 = 0x2000;
+pub const SWP_ASYNCWINDOWPOS: u32 = 0x4000;
+
 #[derive(Debug)]
 #[repr(isize)]
 pub enum DpiAwareness {
