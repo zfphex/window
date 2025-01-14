@@ -44,6 +44,13 @@ impl Window {
             );
         };
     }
+
+    pub fn set_pos(&self, x: i32, y: i32) {
+        unsafe {
+            SetWindowPos(self.hwnd, 0, x, y, 0, 0, SWP_FRAMECHANGED | SWP_NOSIZE);
+        }
+    }
+
     pub fn reset_style(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, DEFAULT_WINDOW_STYLE as isize);
@@ -126,12 +133,32 @@ pub unsafe extern "system" fn wnd_proc(
 pub const DEFAULT_WINDOW_STYLE: u32 =
     WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE;
 
+pub const WINDOW_BORDERLESS: u32 = WS_POPUP | WS_VISIBLE;
+
+#[derive(Copy, Clone, Debug)]
+#[repr(u32)]
+pub enum WindowStyle {
+    Default =
+        WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE,
+    Borderless = WS_POPUP | WS_VISIBLE,
+    //TODO: WS_EX_TOPMOST
+}
+
+impl WindowStyle {
+    pub const fn as_u32(self) -> u32 {
+        unsafe { std::mem::transmute::<WindowStyle, u32>(self) }
+    }
+}
+
 pub fn create_window(
     title: &str,
     // x: Option<i32>,
     // y: Option<i32>,
     width: i32,
     height: i32,
+    //TODO: We need bitflags so the user can customize however they like.
+    //There are also extended flags that need to be handled seperately.
+    style: WindowStyle,
 ) -> Pin<Box<Window>> {
     unsafe {
         if SetThreadDpiAwarenessContext(DpiAwareness::MonitorAwareV2) == 0 {
@@ -175,7 +202,8 @@ pub fn create_window(
             0,
             title.as_ptr() as *const u8,
             title.as_ptr() as *const u8,
-            DEFAULT_WINDOW_STYLE,
+            style.as_u32(),
+            // DEFAULT_WINDOW_STYLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             width,

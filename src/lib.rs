@@ -173,11 +173,20 @@ extern "system" {
     pub fn GetLastError() -> u32;
     pub fn GetProcAddress(hModule: *mut c_void, lpProcName: *const i8) -> *mut c_void;
     pub fn LoadLibraryA(lpFileName: *const i8) -> *mut c_void;
+
     pub fn GetDC(hwnd: isize) -> *mut c_void;
+    pub fn GetPixel(hdc: *mut c_void, x: i32, y: i32) -> u32;
+    pub fn GetFocus() -> HWND;
+
+    pub fn WindowFromPoint(point: Point) -> HWND;
+    pub fn GetDeviceCaps(hdc: *mut c_void, index: i32) -> i32;
+    pub fn GetSystemMetrics(nIndex: i32) -> i32;
+
     pub fn LoadCursorW(hInstance: *mut c_void, lpCursorName: *const u16) -> *mut c_void;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
     pub fn GetKeyState(nVirtKey: i32) -> i16;
     pub fn GetCursorPos(point: *mut Point) -> i32;
+    pub fn GetPhysicalCursorPos(point: *mut Point) -> i32;
     pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     pub fn GetWindow(hwnd: isize, uCmd: u32) -> isize;
     pub fn DestroyWindow(hwnd: isize) -> i32;
@@ -233,7 +242,7 @@ pub enum Modifier {
 pub enum Event {
     Quit,
     //(0, 0) is top left of window.
-    Mouse(i32, i32),
+    MouseMoveInsideWindow(i32, i32),
     Move,
     // This event is only triggerd after a resize, so it's not very useful.
     // Resize,
@@ -323,6 +332,13 @@ pub fn mouse_pos() -> (i32, i32) {
     (point.x, point.y)
 }
 
+pub fn physical_mouse_pos() -> (i32, i32) {
+    let mut point = Point { x: 0, y: 0 };
+    let _ = unsafe { GetPhysicalCursorPos(&mut point) };
+
+    (point.x, point.y)
+}
+
 ///To get the window bounds excluding the drop shadow, use DwmGetWindowAttribute, specifying DWMWA_EXTENDED_FRAME_BOUNDS. Note that unlike the Window Rect, the DWM Extended Frame Bounds are not adjusted for DPI. Getting the extended frame bounds can only be done after the window has been shown at least once.
 pub fn screen_area_no_shadow(_hwnd: isize) -> RECT {
     todo!();
@@ -391,11 +407,11 @@ fn handle_msg(msg: MSG, result: i32) -> Option<Event> {
             }
             0 => None,
             _ => match msg.message {
-                WM_MOVE => Some(Event::Move),
+                // WM_MOVE => Some(Event::Move),
                 WM_MOUSEMOVE => {
                     let x = msg.l_param & 0xFFFF;
                     let y = msg.l_param >> 16 & 0xFFFF;
-                    Some(Event::Mouse(x as i32, y as i32))
+                    Some(Event::MouseMoveInsideWindow(x as i32, y as i32))
                 }
                 WM_MOUSEWHEEL => {
                     const WHEEL_DELTA: i16 = 120;
