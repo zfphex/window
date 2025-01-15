@@ -32,7 +32,7 @@ pub fn lerp_hex(color1: u32, color2: u32, t: f32) -> u32 {
 }
 
 fn main() {
-    let mut window = create_window("Window", 600, 400);
+    let mut window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
     window.borderless();
 
     let hwnd = window.hwnd.clone();

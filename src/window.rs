@@ -53,7 +53,7 @@ impl Window {
 
     pub fn reset_style(&mut self) {
         unsafe {
-            SetWindowLongPtrA(self.hwnd, GWL_STYLE, DEFAULT_WINDOW_STYLE as isize);
+            SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::DEFAULT.style as isize);
 
             //Update the window area without moving or resizing it.
             SetWindowPos(
@@ -130,23 +130,36 @@ pub unsafe extern "system" fn wnd_proc(
     }
 }
 
-pub const DEFAULT_WINDOW_STYLE: u32 =
-    WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE;
+// pub const TOP: u32 = WS_EX_TOPMOST;
 
-pub const WINDOW_BORDERLESS: u32 = WS_POPUP | WS_VISIBLE;
-
-#[derive(Copy, Clone, Debug)]
-#[repr(u32)]
-pub enum WindowStyle {
-    Default =
-        WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE,
-    Borderless = WS_POPUP | WS_VISIBLE,
-    //TODO: WS_EX_TOPMOST
+pub struct WindowStyle {
+    pub style: u32,
+    pub exstyle: u32,
 }
 
 impl WindowStyle {
-    pub const fn as_u32(self) -> u32 {
-        unsafe { std::mem::transmute::<WindowStyle, u32>(self) }
+    pub const DEFAULT: Self = Self {
+        style: WS_CAPTION
+            | WS_SYSMENU
+            | WS_THICKFRAME
+            | WS_MINIMIZEBOX
+            | WS_MAXIMIZEBOX
+            | WS_VISIBLE,
+        exstyle: 0,
+    };
+    pub const BORDERLESS: Self = Self {
+        style: WS_POPUP | WS_VISIBLE,
+        exstyle: 0,
+    };
+
+    pub fn ex_style(mut self, flags: u32) -> Self {
+        self.exstyle |= flags;
+        self
+    }
+
+    pub fn style(mut self, flags: u32) -> Self {
+        self.style |= flags;
+        self
     }
 }
 
@@ -156,8 +169,6 @@ pub fn create_window(
     // y: Option<i32>,
     width: i32,
     height: i32,
-    //TODO: We need bitflags so the user can customize however they like.
-    //There are also extended flags that need to be handled seperately.
     style: WindowStyle,
 ) -> Pin<Box<Window>> {
     unsafe {
@@ -199,11 +210,11 @@ pub fn create_window(
         //         };
 
         let hwnd = CreateWindowExA(
-            0,
+            style.exstyle,
             title.as_ptr() as *const u8,
             title.as_ptr() as *const u8,
-            style.as_u32(),
-            // DEFAULT_WINDOW_STYLE,
+            style.style,
+            // WindowStyle::DEFAULT,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             width,
