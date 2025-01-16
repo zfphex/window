@@ -32,15 +32,14 @@ pub fn lerp_hex(color1: u32, color2: u32, t: f32) -> u32 {
 }
 
 fn main() {
-    let mut window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
-    window.borderless();
-
+    let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
     let hwnd = window.hwnd.clone();
 
     std::thread::spawn(move || unsafe {
         let mut area = client_area(hwnd);
-        let mut width = area.width();
-        let mut height = area.height();
+        let mut scale = (GetDpiForWindow(hwnd) as f32 / DEFAULT_DPI) as i32;
+        let mut width = area.width() * scale;
+        let mut height = area.height() * scale;
 
         let context = GetDC(hwnd);
         let mut bitmap = BITMAPINFO::new(width, height);
@@ -53,9 +52,12 @@ fn main() {
         loop {
             let new_area = screen_area(hwnd);
             if new_area != area {
+                //Doesn't work at all???
+                scale = (GetDpiForWindow(hwnd) as f32 / DEFAULT_DPI) as i32;
+                // dbg!(GetDpiForWindow(hwnd) );
                 area = new_area;
-                width = area.width();
-                height = area.height();
+                width = area.width() * scale;
+                height = area.height() * scale;
 
                 buffer.clear();
                 buffer.resize(width as usize * height as usize, 0);
@@ -90,7 +92,9 @@ fn main() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Dpi(dpi)) => {
                 println!("Dpi: {:?}", dpi);
-                println!("Scale factor: {}", window.scale_factor());
+                println!("Scale factor: {}", dpi as f32 / DEFAULT_DPI);
+                println!("Client {:?}", window.client_area());
+                println!("Screen {:?}", window.screen_area());
             }
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
             _ => {}

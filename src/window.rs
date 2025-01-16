@@ -2,6 +2,8 @@ use crate::*;
 use crossbeam_queue::SegQueue;
 use std::pin::Pin;
 
+pub const DEFAULT_DPI: f32 = 96.0;
+
 #[derive(Debug)]
 pub struct Window {
     pub hwnd: isize,
@@ -15,8 +17,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn scale_factor(&self) -> f32 {
-        const DEFAULT_DPI: f32 = 96.0;
+    pub fn display_scale(&self) -> f32 {
         unsafe { GetDpiForWindow(self.hwnd) as f32 / DEFAULT_DPI }
     }
     pub fn dpi(&self) -> u32 {
@@ -30,7 +31,7 @@ impl Window {
     }
     pub fn borderless(&mut self) {
         unsafe {
-            SetWindowLongPtrA(self.hwnd, GWL_STYLE, (WS_POPUP | WS_VISIBLE) as isize);
+            SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::BORDERLESS.style as isize);
 
             //Update the window area without moving or resizing it.
             SetWindowPos(

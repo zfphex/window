@@ -408,6 +408,7 @@ fn handle_msg(msg: MSG, result: i32) -> Option<Event> {
             0 => None,
             _ => match msg.message {
                 // WM_MOVE => Some(Event::Move),
+                WM_GETDPISCALEDSIZE => unreachable!(),
                 WM_MOUSEMOVE => {
                     let x = msg.l_param & 0xFFFF;
                     let y = msg.l_param >> 16 & 0xFFFF;
