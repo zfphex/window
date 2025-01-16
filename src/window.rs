@@ -8,6 +8,8 @@ pub const DEFAULT_DPI: f32 = 96.0;
 pub struct Window {
     pub hwnd: isize,
     pub screen_mouse_pos: (i32, i32),
+    //TODO:
+    // pub display_scaling: AtomicF32
 
     //TODO: Remove, this is super overkill.
     //The only events going through this now are Quit and Dpi.
