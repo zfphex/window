@@ -36,7 +36,7 @@ pub static mut DISPLAY_SCALE: f32 = 0.0;
 fn main() {
     let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
     let hwnd = window.hwnd.clone();
-    unsafe { DISPLAY_SCALE = window.display_scale() };
+    unsafe { DISPLAY_SCALE = window.display_scale };
 
     std::thread::spawn(move || unsafe {
         let mut area = client_area(hwnd);
@@ -94,10 +94,10 @@ fn main() {
         match window.event() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Dpi(dpi)) => {
-                println!("Dpi: {:?}", dpi);
+                // println!("Dpi: {:?}", dpi);
                 println!("Scale factor: {}", dpi as f32 / DEFAULT_DPI);
-                println!("Client {:?}", window.client_area());
-                println!("Screen {:?}", window.screen_area());
+                // println!("Client {:?}", window.client_area());
+                // println!("Screen {:?}", window.screen_area());
 
                 //TODO: Implement a threadsafe version of this.
                 unsafe { DISPLAY_SCALE = dpi as f32 / DEFAULT_DPI };
@@ -105,5 +105,7 @@ fn main() {
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
             _ => {}
         }
+
+        // window.set_pos(0, 100);
     }
 }

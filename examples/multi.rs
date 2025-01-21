@@ -91,7 +91,7 @@ fn main() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Dpi(dpi)) => {
                 println!("Dpi: {:?}", dpi);
-                println!("Scale factor: {}", window.display_scale());
+                println!("Scale factor: {}", window.display_scale);
             }
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
             _ => {}

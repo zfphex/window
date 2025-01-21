@@ -214,6 +214,14 @@ extern "system" {
         cy: i32,
         uFlags: u32,
     ) -> i32;
+    pub fn MoveWindow(
+        hWnd: HWND,
+        X: i32,
+        Y: i32,
+        nWidth: i32,
+        nHeight: i32,
+        bRepaint: BOOL,
+    ) -> BOOL;
     pub fn DwmGetWindowAttribute(
         hWnd: isize,
         dwAttribute: u32,

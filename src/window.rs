@@ -10,6 +10,7 @@ pub struct Window {
     pub screen_mouse_pos: (i32, i32),
     //TODO:
     // pub display_scaling: AtomicF32
+    pub display_scale: f32,
 
     //TODO: Remove, this is super overkill.
     //The only events going through this now are Quit and Dpi.
@@ -19,11 +20,32 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn display_scale(&self) -> f32 {
-        unsafe { GetDpiForWindow(self.hwnd) as f32 / DEFAULT_DPI }
-    }
-    pub fn dpi(&self) -> u32 {
-        unsafe { GetDpiForWindow(self.hwnd) }
+    ///Updates the width and height based on the display scale.
+    pub fn rescale_window(&self) {
+        let area = client_area(self.hwnd);
+        let (width, height) = if self.display_scale == 1.0 {
+            (
+                area.width() as f32 / self.display_scale,
+                area.height() as f32 / self.display_scale,
+            )
+        } else {
+            (
+                area.width() as f32 * self.display_scale,
+                area.height() as f32 * self.display_scale,
+            )
+        };
+
+        unsafe {
+            SetWindowPos(
+                self.hwnd,
+                0,
+                area.left,
+                area.top,
+                width as i32,
+                height as i32,
+                SWP_FRAMECHANGED,
+            )
+        };
     }
     pub fn client_area(&self) -> RECT {
         client_area(self.hwnd)
@@ -48,9 +70,14 @@ impl Window {
         };
     }
 
-    pub fn set_pos(&self, x: i32, y: i32) {
+    pub fn move_window(&self, x: i32, y: i32) {
+        let area = client_area(self.hwnd);
+        unsafe { MoveWindow(self.hwnd, x, y, area.width(), area.height(), 0) };
+    }
+
+    pub fn set_pos(&self, x: i32, y: i32, cx: i32, cy: i32) {
         unsafe {
-            SetWindowPos(self.hwnd, 0, x, y, 0, 0, SWP_FRAMECHANGED | SWP_NOSIZE);
+            SetWindowPos(self.hwnd, 0, x, y, cx, cy, SWP_FRAMECHANGED);
         }
     }
 
@@ -126,6 +153,7 @@ pub unsafe extern "system" fn wnd_proc(
         }
         //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-getdpiscaledsize
         WM_GETDPISCALEDSIZE => {
+            window.display_scale = wparam as f32 / DEFAULT_DPI;
             window.queue.push(Event::Dpi(wparam));
             return 1;
         }
@@ -232,15 +260,37 @@ pub fn create_window(
             null(),
         );
 
+        let display_scale = GetDpiForWindow(hwnd) as f32 / DEFAULT_DPI;
+
+        //There is no way to know which monitor the window will be on and what DPI it will have before creation.
+        //We then need to scale the window after creation.
+        if display_scale != 1.0 {
+            let area = client_area(hwnd);
+            SetWindowPos(
+                hwnd,
+                0,
+                area.left,
+                area.top,
+                (area.width() as f32 * display_scale) as i32,
+                (area.height() as f32 * display_scale) as i32,
+                SWP_FRAMECHANGED,
+            );
+        }
+
         assert_ne!(hwnd, 0);
         WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
 
         //Safety: This *should* be pinned.
         let window = Box::pin(Window {
+            display_scale,
             hwnd,
             screen_mouse_pos: (0, 0),
             queue: SegQueue::new(),
         });
+
+        if display_scale == 1.0 {
+            window.rescale_window();
+        }
 
         let addr = &*window as *const Window;
         let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
