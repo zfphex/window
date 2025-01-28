@@ -4,6 +4,8 @@ use std::pin::Pin;
 
 pub const DEFAULT_DPI: f32 = 96.0;
 
+pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
+
 #[derive(Debug)]
 pub struct Window {
     pub hwnd: isize,
@@ -123,7 +125,7 @@ impl Window {
             return Some(event);
         };
 
-        event(Some(self.hwnd))
+        unsafe { event(Some(self.hwnd)) }
     }
 }
 
