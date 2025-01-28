@@ -127,55 +127,6 @@ impl Window {
     }
 }
 
-pub unsafe extern "system" fn wnd_proc(
-    hwnd: isize,
-    msg: u32,
-    wparam: usize,
-    lparam: isize,
-) -> isize {
-    if msg == WM_CREATE {
-        set_dark_mode(hwnd).unwrap();
-        return 0;
-    }
-
-    let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Window;
-    if ptr.is_null() {
-        return DefWindowProcA(hwnd, msg, wparam, lparam);
-    }
-
-    //I'm not convinced this is the right way to do this.
-    let window: &mut Window = &mut *ptr;
-
-    match msg {
-        WM_DESTROY | WM_CLOSE => {
-            window.queue.push(Event::Quit);
-            return 0;
-        }
-        WM_DPICHANGED => {
-            let dpi = (wparam >> 16) & 0xffff;
-
-            let ptr = lparam as *mut RECT;
-            assert!(!ptr.is_null());
-            let rect = &(*ptr);
-
-            SetWindowPos(
-                hwnd,
-                0,
-                rect.left,
-                rect.top,
-                rect.right - rect.left,
-                rect.bottom - rect.top,
-                SWP_NOZORDER | SWP_NOACTIVATE,
-            );
-
-            window.display_scale = dpi as f32 / DEFAULT_DPI;
-            eprintln!("Display Scale: {}", window.display_scale);
-            return 0;
-        }
-        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
-    }
-}
-
 // pub const TOP: u32 = WS_EX_TOPMOST;
 
 pub struct WindowStyle {
@@ -313,5 +264,55 @@ pub fn create_window(
         assert!(result <= 0);
 
         window
+    }
+}
+
+pub unsafe extern "system" fn wnd_proc(
+    hwnd: isize,
+    msg: u32,
+    wparam: usize,
+    lparam: isize,
+) -> isize {
+    if msg == WM_CREATE {
+        set_dark_mode(hwnd).unwrap();
+        return 0;
+    }
+
+    let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Window;
+    if ptr.is_null() {
+        return DefWindowProcA(hwnd, msg, wparam, lparam);
+    }
+
+    //I'm not convinced this is the right way to do this.
+    let window: &mut Window = &mut *ptr;
+
+    match msg {
+        WM_DESTROY | WM_CLOSE => {
+            window.queue.push(Event::Quit);
+            return 0;
+        }
+        //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged
+        WM_DPICHANGED => {
+            let dpi = (wparam >> 16) & 0xffff;
+
+            let ptr = lparam as *mut RECT;
+            assert!(!ptr.is_null());
+            let rect = &(*ptr);
+
+            SetWindowPos(
+                hwnd,
+                0,
+                rect.left,
+                rect.top,
+                rect.right - rect.left,
+                rect.bottom - rect.top,
+                SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+
+            window.display_scale = dpi as f32 / DEFAULT_DPI;
+            eprintln!("Display Scale: {}", window.display_scale);
+            return 0;
+        }
+        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
     }
 }

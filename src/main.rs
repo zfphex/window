@@ -93,15 +93,11 @@ fn main() {
     loop {
         match window.event() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
-            Some(Event::Dpi(dpi)) => {
-                // println!("Dpi: {:?}", dpi);
-                println!("Scale factor: {}", dpi as f32 / DEFAULT_DPI);
-                // println!("Client {:?}", window.client_area());
-                // println!("Screen {:?}", window.screen_area());
-
-                //TODO: Implement a threadsafe version of this.
-                unsafe { DISPLAY_SCALE = dpi as f32 / DEFAULT_DPI };
-            }
+            //TODO: Should I re-add this event. How can the user update the bitmap width and height across threads.
+            // Some(Event::Dpi(dpi)) => {
+            //     println!("Scale factor: {}", dpi as f32 / DEFAULT_DPI);
+            //     unsafe { DISPLAY_SCALE = dpi as f32 / DEFAULT_DPI };
+            // }
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
             _ => {}
         }
