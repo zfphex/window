@@ -23,6 +23,16 @@ pub type LONG = i32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
 
+// #[inline]
+// pub fn LOWORD(l: DWORD) -> WORD {
+//     (l & 0xffff) as WORD
+// }
+
+// #[inline]
+// pub fn HIWORD(l: DWORD) -> WORD {
+//     ((l >> 16) & 0xffff) as WORD
+// }
+
 // pub enum VOID {}
 // pub type VOID = *const ();
 
@@ -228,9 +238,14 @@ extern "system" {
         pvAttribute: *mut c_void,
         cbAttribute: u32,
     ) -> i32;
+
     pub fn GetSystemMetricsForDpi(nIndex: i32, dpi: u32) -> i32;
-    pub fn SetThreadDpiAwarenessContext(dpiContext: DpiAwareness) -> isize;
-    // pub fn GetThreadDpiAwarenessContext() -> isize;
+
+    pub fn GetThreadDpiAwarenessContext() -> *mut c_void;
+    pub fn SetThreadDpiAwarenessContext(dpi_context: *mut c_void) -> isize;
+
+    pub fn GetWindowDpiAwarenessContext(hwnd: isize) -> *mut c_void;
+
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
     pub fn ReleaseCapture() -> i32;
 }
@@ -252,9 +267,6 @@ pub enum Event {
     //(0, 0) is top left of window.
     MouseMoveInsideWindow(i32, i32),
     Move,
-    // This event is only triggerd after a resize, so it's not very useful.
-    // Resize,
-    Dpi(usize),
     Input(Key, Modifiers),
 }
 
@@ -415,8 +427,6 @@ fn handle_msg(msg: MSG, result: i32) -> Option<Event> {
             }
             0 => None,
             _ => match msg.message {
-                // WM_MOVE => Some(Event::Move),
-                WM_GETDPISCALEDSIZE => unreachable!(),
                 WM_MOUSEMOVE => {
                     let x = msg.l_param & 0xFFFF;
                     let y = msg.l_param >> 16 & 0xFFFF;

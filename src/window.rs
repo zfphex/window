@@ -75,9 +75,9 @@ impl Window {
         unsafe { MoveWindow(self.hwnd, x, y, area.width(), area.height(), 0) };
     }
 
-    pub fn set_pos(&self, x: i32, y: i32, cx: i32, cy: i32) {
+    pub fn set_pos(&self, x: i32, y: i32, width: i32, height: i32) {
         unsafe {
-            SetWindowPos(self.hwnd, 0, x, y, cx, cy, SWP_FRAMECHANGED);
+            SetWindowPos(self.hwnd, 0, x, y, width, height, SWP_FRAMECHANGED);
         }
     }
 
@@ -151,11 +151,26 @@ pub unsafe extern "system" fn wnd_proc(
             window.queue.push(Event::Quit);
             return 0;
         }
-        //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-getdpiscaledsize
-        WM_GETDPISCALEDSIZE => {
-            window.display_scale = wparam as f32 / DEFAULT_DPI;
-            window.queue.push(Event::Dpi(wparam));
-            return 1;
+        WM_DPICHANGED => {
+            let dpi = (wparam >> 16) & 0xffff;
+
+            let ptr = lparam as *mut RECT;
+            assert!(!ptr.is_null());
+            let rect = &(*ptr);
+
+            SetWindowPos(
+                hwnd,
+                0,
+                rect.left,
+                rect.top,
+                rect.right - rect.left,
+                rect.bottom - rect.top,
+                SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+
+            window.display_scale = dpi as f32 / DEFAULT_DPI;
+            eprintln!("Display Scale: {}", window.display_scale);
+            return 0;
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
     }
@@ -178,6 +193,7 @@ impl WindowStyle {
             | WS_VISIBLE,
         exstyle: 0,
     };
+
     pub const BORDERLESS: Self = Self {
         style: WS_POPUP | WS_VISIBLE,
         exstyle: 0,
@@ -203,7 +219,7 @@ pub fn create_window(
     style: WindowStyle,
 ) -> Pin<Box<Window>> {
     unsafe {
-        if SetThreadDpiAwarenessContext(DpiAwareness::MonitorAwareV2) == 0 {
+        if SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) == 0 {
             panic!("Only Windows 10 (1607) or later is supported.")
         };
 

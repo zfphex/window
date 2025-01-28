@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 pub const VK_LBUTTON: i32 = 0x01;
 pub const VK_RBUTTON: i32 = 0x02;
 pub const VK_CANCEL: i32 = 0x03;
@@ -811,12 +813,6 @@ pub const SW_SHOWDEFAULT: i32 = 10;
 pub const SW_FORCEMINIMIZE: i32 = 11;
 pub const SW_MAX: i32 = 11;
 
-pub const DPI_AWARENESS_CONTEXT_UNAWARE: isize = -1;
-pub const DPI_AWARENESS_CONTEXT_SYSTEM_AWARE: isize = -2;
-pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE: isize = -3;
-pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: isize = -4;
-pub const DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: isize = -5;
-
 pub const GWL_EXSTYLE: i32 = -20;
 pub const GWL_STYLE: i32 = -16;
 
@@ -836,15 +832,11 @@ pub const SWP_NOREPOSITION: u32 = SWP_NOOWNERZORDER;
 pub const SWP_DEFERERASE: u32 = 0x2000;
 pub const SWP_ASYNCWINDOWPOS: u32 = 0x4000;
 
-#[derive(Debug)]
-#[repr(isize)]
-pub enum DpiAwareness {
-    Unaware = -1,
-    SystemAware = -2,
-    MonitorAware = -3,
-    MonitorAwareV2 = -4,
-    UnawareGDIScaled = -5,
-}
+pub const DPI_AWARENESS_UNAWARE: *mut c_void = -1isize as *mut c_void;
+pub const DPI_AWARENESS_SYSTEM_AWARE: *mut c_void = -2isize as *mut c_void;
+pub const DPI_AWARENESS_PER_MONITOR_AWARE: *mut c_void = -3isize as *mut c_void;
+pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: *mut c_void = -4isize as *mut c_void;
+pub const DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: *mut c_void = -5isize as *mut c_void;
 
 #[macro_export]
 macro_rules! utf16 {
