@@ -312,7 +312,7 @@ pub unsafe extern "system" fn wnd_proc(
             );
 
             window.display_scale = dpi as f32 / DEFAULT_DPI;
-            eprintln!("Display Scale: {}", window.display_scale);
+            mini::info!("Display Scale: {}", window.display_scale);
             return 0;
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
