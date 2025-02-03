@@ -10,8 +10,6 @@ pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub struct Window {
     pub hwnd: isize,
     pub screen_mouse_pos: (i32, i32),
-    //TODO:
-    // pub display_scaling: AtomicF32
     pub display_scale: f32,
 
     //TODO: Remove, this is super overkill.
@@ -295,24 +293,43 @@ pub unsafe extern "system" fn wnd_proc(
         }
         //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged
         WM_DPICHANGED => {
+            //The new display scale and DPI.
             let dpi = (wparam >> 16) & 0xffff;
+            let scale = dpi as f32 / DEFAULT_DPI;
 
+            //This is the recommended x, y, width and height.
+            //The width and height is wrong so we ignore it.
+            //X and Y seems right.
             let ptr = lparam as *mut RECT;
             assert!(!ptr.is_null());
             let rect = &(*ptr);
+
+            let old = client_area(hwnd);
+            //Calculate the original width and height.
+            let original_width = (old.right - old.left) as f32 / window.display_scale;
+            let original_height = (old.bottom - old.top) as f32 / window.display_scale;
+
+            let (width, height) = if scale == 1.0 {
+                (original_width, original_height)
+            } else {
+                (original_width * scale, original_height * scale)
+            };
+
+            mini::info!("Rescaling Window x: {}, y: {}, width: {}, height: {}, old_scale: {}, new_scale: {}", old.top, old.left, width.round(), height.round(), window.display_scale, scale);
 
             SetWindowPos(
                 hwnd,
                 0,
                 rect.left,
                 rect.top,
-                rect.right - rect.left,
-                rect.bottom - rect.top,
+                width.round() as i32,
+                height.round() as i32,
+                // rect.right - rect.left,
+                // rect.bottom - rect.top,
                 SWP_NOZORDER | SWP_NOACTIVATE,
             );
 
-            window.display_scale = dpi as f32 / DEFAULT_DPI;
-            mini::info!("Display Scale: {}", window.display_scale);
+            window.display_scale = scale;
             return 0;
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
