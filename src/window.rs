@@ -161,6 +161,12 @@ impl WindowStyle {
     }
 }
 
+impl Default for WindowStyle {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 pub fn create_window(
     title: &str,
     // x: Option<i32>,
