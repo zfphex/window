@@ -8,8 +8,27 @@ pub const CLEARTYPE_QUALITY: DWORD = 5;
 pub const TRANSPARENT: i32 = 1;
 pub const RGN_AND: i32 = 1;
 
-#[link(name = "Gdi32")]
+#[link(name = "Msimg32")]
 extern "system" {
+    pub fn AlphaBlend(
+        hdcDest: *mut c_void,
+        xoriginDest: i32,
+        yoriginDest: i32,
+        wDest: i32,
+        hDest: i32,
+        hdcSrc: *mut c_void,
+        xoriginSrc: i32,
+        yoriginSrc: i32,
+        wSrc: i32,
+        hSrc: i32,
+        ftn: BLENDFUNCTION,
+    ) -> i32;
+}
+
+#[link(name = "Gdi32")]
+
+extern "system" {
+
     pub fn StretchDIBits(
         hdc: *mut c_void,
         XDest: i32,
@@ -41,6 +60,14 @@ extern "system" {
         iPitchAndFamily: DWORD,
         pszFaceName: LPCSTR,
     ) -> *mut c_void;
+    pub fn CreateDIBSection(
+        hdc: *mut c_void,
+        lpbmi: *const BITMAPINFO,
+        usage: UINT,
+        ppvBits: *mut *mut c_void,
+        hSection: *mut c_void,
+        offset: DWORD,
+    ) -> *mut c_void;
     pub fn TextOutA(hdc: *mut c_void, x: i32, y: i32, lpString: LPCSTR, c: i32) -> i32;
     pub fn SetTextColor(hdc: *mut c_void, color: u32) -> u32;
     pub fn SetBkMode(hdc: *mut c_void, mode: i32) -> i32;
@@ -51,6 +78,7 @@ extern "system" {
     pub fn BeginPath(hdc: *mut c_void) -> i32;
     pub fn EndPath(hdc: *mut c_void) -> i32;
     pub fn SelectClipPath(hdc: *mut c_void, mode: i32) -> BOOL;
+    pub fn DeleteObject(ho: *mut c_void) -> BOOL;
 }
 
 #[repr(C)]
@@ -110,4 +138,19 @@ pub struct RGBQUAD {
     pub green: u8,
     pub red: u8,
     pub reserved: u8,
+}
+
+pub const AC_SRC_OVER: u8 = 0x00;
+pub const AC_SRC_ALPHA: u8 = 0x01;
+
+pub const DIB_RGB_COLORS: DWORD = 0;
+pub const DIB_PAL_COLORS: DWORD = 1;
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct BLENDFUNCTION {
+    pub BlendOp: u8,
+    pub BlendFlags: u8,
+    pub SourceConstantAlpha: u8,
+    pub AlphaFormat: u8,
 }

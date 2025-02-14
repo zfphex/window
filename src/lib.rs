@@ -117,6 +117,8 @@ extern "system" {
         cbAttribute: u32,
     ) -> i32;
 
+    pub fn SetLayeredWindowAttributes(hwnd: isize, color_key: u32, alpha: u8, flags: u32) -> i32;
+
     pub fn GetSystemMetricsForDpi(nIndex: i32, dpi: u32) -> i32;
 
     pub fn GetThreadDpiAwarenessContext() -> *mut c_void;
@@ -145,20 +147,19 @@ pub struct RECT {
 }
 
 impl RECT {
+    pub const fn new(left: i32, top: i32, right: i32, bottom: i32) -> Self {
+        Self {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
     pub const fn width(&self) -> i32 {
         self.right - self.left
     }
     pub const fn height(&self) -> i32 {
         self.bottom - self.top
-    }
-
-    pub const fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
-        Self {
-            left: x,
-            top: y,
-            right: width,
-            bottom: height,
-        }
     }
 }
 

@@ -53,6 +53,12 @@ impl Window {
     pub fn screen_area(&self) -> RECT {
         screen_area(self.hwnd)
     }
+    pub fn width(&self) -> i32 {
+        client_area(self.hwnd).width()
+    }
+    pub fn height(&self) -> i32 {
+        client_area(self.hwnd).height()
+    }
     pub fn borderless(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::BORDERLESS.style as isize);
@@ -75,6 +81,20 @@ impl Window {
         unsafe { MoveWindow(self.hwnd, x, y, area.width(), area.height(), 0) };
     }
 
+    pub fn set_dimensions(&self, width: i32, height: i32) {
+        unsafe {
+            SetWindowPos(
+                self.hwnd,
+                0,
+                0,
+                0,
+                width,
+                height,
+                SWP_FRAMECHANGED | SWP_NOSIZE,
+            );
+        }
+        todo!("test this");
+    }
     pub fn set_pos(&self, x: i32, y: i32, width: i32, height: i32) {
         unsafe {
             SetWindowPos(self.hwnd, 0, x, y, width, height, SWP_FRAMECHANGED);
@@ -199,19 +219,13 @@ pub fn create_window(
 
         let _ = RegisterClassA(&wnd_class);
 
-        //Imagine that the users wants a window that is 800x600.
-        //`CreateWindow` takes in screen coordinates instead of client coordiantes.
-        //Which means that it will set the window size including the title bar and borders etc.
-        //We must convert the requested client coordinates to screen coordinates.
+        //Adjust the rect to fit exactly what the user requested.
+        //Windows has padding and other weird nonsense when trying set the width and height.
+        let mut rect = RECT::new(0, 0, width, height);
+        AdjustWindowRectEx(&mut rect, style.style, 0, style.exstyle);
 
-        //TODO: What is this value at different DPI's?
-        // const WINDOW_PADDING_96_DPI: i32 = 7;
-        //         let rect = RECT {
-        //             left: x - WINDOW_PADDING_96_DPI,
-        //             top: y,
-        //             right: x + width,
-        //             bottom: y + height,
-        //         };
+        let adjusted_width = rect.right - rect.left;
+        let adjusted_height = rect.bottom - rect.top;
 
         let hwnd = CreateWindowExA(
             style.exstyle,
@@ -221,8 +235,8 @@ pub fn create_window(
             // WindowStyle::DEFAULT,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            width,
-            height,
+            adjusted_width,
+            adjusted_height,
             // rect.left,
             // rect.top,
             // rect.width(),
@@ -261,9 +275,9 @@ pub fn create_window(
             queue: SegQueue::new(),
         });
 
-        if display_scale == 1.0 {
-            window.rescale_window();
-        }
+        // if display_scale == 1.0 {
+        //     window.rescale_window();
+        // }
 
         let addr = &*window as *const Window;
         let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
