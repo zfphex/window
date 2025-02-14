@@ -1,6 +1,6 @@
-use crate::*;
+use core::ffi::c_void;
 
-pub fn set_clipboard(text: &str) {
+pub fn copy_to_clipboard(text: &str) {
     unsafe {
         assert!(OpenClipboard(0) != 0);
         assert!(EmptyClipboard() != 0);
@@ -22,7 +22,7 @@ pub fn set_clipboard(text: &str) {
 }
 
 #[link(name = "user32")]
-extern "system" {
+unsafe extern "system" {
     pub fn OpenClipboard(hwnd: isize) -> i32;
     pub fn CloseClipboard() -> i32;
     pub fn SetClipboardData(format: u32, mem: *mut c_void) -> *mut c_void;
