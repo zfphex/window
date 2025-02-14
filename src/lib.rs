@@ -4,12 +4,16 @@ mod dark_mode;
 mod event;
 mod gdi;
 mod window;
+mod global_event;
+mod clipboard;
 
 pub use constants::*;
 pub use dark_mode::*;
 pub use event::*;
 pub use gdi::*;
 pub use window::*;
+pub use global_event::*;
+pub use clipboard::*;
 
 use core::{
     ffi::c_void,
@@ -17,6 +21,7 @@ use core::{
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+pub type HANDLE = *mut c_void;
 pub type HWND = isize;
 pub type WPARAM = usize;
 pub type LPARAM = isize;
