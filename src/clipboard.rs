@@ -17,8 +17,7 @@ pub fn set_clipboard(text: &str) {
         GlobalUnlock(galloc);
 
         assert!(!SetClipboardData(CF_TEXT, galloc).is_null());
-
-        CloseClipboard();
+        assert!(CloseClipboard() != 0);
     }
 }
 
