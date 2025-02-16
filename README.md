@@ -40,6 +40,3 @@ Programs which pass CW_USEDEFAULT to the CreateWindow function explicitly abdica
 https://learn.microsoft.com/en-us/windows/win32/directcomp/compositor-clock/compositor-clock
 https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod
 https://www.gdcvault.com/play/1025031/Advanced-Graphics-Techniques-Tutorial-The
-https://learn.microsoft.com/en-us/windows/win32/comp_swapchain/comp-swapchain-examples#example-11synchronizing-presentation-using-buffer-available-events-and-handling-presentation-manager-lost-events
-https://hero.handmade.network/forums/game-discussion/t/8612-what_does_timebeginperiod_actually_do
-https://randomascii.wordpress.com/2013/07/08/windows-timer-resolution-megawatts-wasted/

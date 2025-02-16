@@ -95,9 +95,11 @@ impl Window {
         }
         todo!("test this");
     }
-    pub fn set_pos(&self, x: i32, y: i32, width: i32, height: i32) {
+
+    pub fn set_pos(&self, x: i32, y: i32, width: i32, height: i32, flags: u32) {
         unsafe {
-            SetWindowPos(self.hwnd, 0, x, y, width, height, SWP_FRAMECHANGED);
+            //SWP_FRAMECHANGED
+            SetWindowPos(self.hwnd, 0, x, y, width, height, flags);
         }
     }
 

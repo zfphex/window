@@ -5,8 +5,8 @@ mod dark_mode;
 mod event;
 mod gdi;
 mod global_event;
-mod window;
 mod monitor;
+mod window;
 
 pub use clipboard::*;
 pub use constants::*;
@@ -14,8 +14,8 @@ pub use dark_mode::*;
 pub use event::*;
 pub use gdi::*;
 pub use global_event::*;
-pub use window::*;
 pub use monitor::*;
+pub use window::*;
 
 use core::{
     ffi::c_void,
@@ -137,7 +137,6 @@ extern "system" {
     pub fn ReleaseCapture() -> i32;
 }
 
-
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
 pub struct POINT {
@@ -155,6 +154,7 @@ pub struct RECT {
 }
 
 impl RECT {
+    #[inline]
     pub const fn new(left: i32, top: i32, right: i32, bottom: i32) -> Self {
         Self {
             left,
@@ -163,9 +163,19 @@ impl RECT {
             bottom,
         }
     }
+    #[inline]
+    pub const fn x(&self) -> i32 {
+        self.left
+    }
+    #[inline]
+    pub const fn y(&self) -> i32 {
+        self.top
+    }
+    #[inline]
     pub const fn width(&self) -> i32 {
         self.right - self.left
     }
+    #[inline]
     pub const fn height(&self) -> i32 {
         self.bottom - self.top
     }
