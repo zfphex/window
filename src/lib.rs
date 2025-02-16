@@ -1,19 +1,21 @@
 #![allow(non_snake_case, static_mut_refs)]
+mod clipboard;
 mod constants;
 mod dark_mode;
 mod event;
 mod gdi;
-mod window;
 mod global_event;
-mod clipboard;
+mod window;
+mod monitor;
 
+pub use clipboard::*;
 pub use constants::*;
 pub use dark_mode::*;
 pub use event::*;
 pub use gdi::*;
-pub use window::*;
 pub use global_event::*;
-pub use clipboard::*;
+pub use window::*;
+pub use monitor::*;
 
 use core::{
     ffi::c_void,
@@ -71,15 +73,15 @@ extern "system" {
     pub fn GetPixel(hdc: *mut c_void, x: i32, y: i32) -> u32;
     pub fn GetFocus() -> HWND;
 
-    pub fn WindowFromPoint(point: Point) -> HWND;
+    pub fn WindowFromPoint(point: POINT) -> HWND;
     pub fn GetDeviceCaps(hdc: *mut c_void, index: i32) -> i32;
     pub fn GetSystemMetrics(nIndex: i32) -> i32;
 
     pub fn LoadCursorW(hInstance: *mut c_void, lpCursorName: *const u16) -> *mut c_void;
     pub fn GetAsyncKeyState(vKey: i32) -> i16;
     pub fn GetKeyState(nVirtKey: i32) -> i16;
-    pub fn GetCursorPos(point: *mut Point) -> i32;
-    pub fn GetPhysicalCursorPos(point: *mut Point) -> i32;
+    pub fn GetCursorPos(point: *mut POINT) -> i32;
+    pub fn GetPhysicalCursorPos(point: *mut POINT) -> i32;
     pub fn DefWindowProcA(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     pub fn GetWindow(hwnd: isize, uCmd: u32) -> isize;
     pub fn DestroyWindow(hwnd: isize) -> i32;
@@ -96,7 +98,7 @@ extern "system" {
     pub fn GetDesktopWindow() -> isize;
     pub fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
     pub fn GetClientRect(hwnd: isize, lpRect: *mut RECT) -> i32;
-    pub fn ClientToScreen(hwnd: isize, lpPoint: *mut Point) -> i32;
+    pub fn ClientToScreen(hwnd: isize, lpPoint: *mut POINT) -> i32;
     pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
     pub fn SetWindowPos(
         hWnd: isize,
@@ -135,9 +137,10 @@ extern "system" {
     pub fn ReleaseCapture() -> i32;
 }
 
+
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
-pub struct Point {
+pub struct POINT {
     pub x: i32,
     pub y: i32,
 }
@@ -176,7 +179,7 @@ pub struct MSG {
     pub w_param: usize,
     pub l_param: isize,
     pub time: u32,
-    pub pt: Point,
+    pub pt: POINT,
 }
 
 impl MSG {
@@ -207,7 +210,7 @@ impl MSG {
             w_param: 0,
             l_param: 0,
             time: 0,
-            pt: Point { x: 0, y: 0 },
+            pt: POINT { x: 0, y: 0 },
         }
     }
 }
@@ -340,14 +343,14 @@ pub fn modifiers() -> Modifiers {
 }
 
 pub fn mouse_pos() -> (i32, i32) {
-    let mut point = Point { x: 0, y: 0 };
+    let mut point = POINT { x: 0, y: 0 };
     let _ = unsafe { GetCursorPos(&mut point) };
 
     (point.x, point.y)
 }
 
 pub fn physical_mouse_pos() -> (i32, i32) {
-    let mut point = Point { x: 0, y: 0 };
+    let mut point = POINT { x: 0, y: 0 };
     let _ = unsafe { GetPhysicalCursorPos(&mut point) };
 
     (point.x, point.y)

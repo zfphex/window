@@ -1,15 +1,6 @@
-use std::sync::Once;
-
 use crate::*;
 
 pub const WH_MOUSE_LL: i32 = 14;
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct POINT {
-    pub x: LONG,
-    pub y: LONG,
-}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -39,7 +30,6 @@ extern "system" {
 }
 
 pub static mut HOOK: *mut c_void = core::ptr::null_mut();
-pub static mut ONCE: Once = Once::new();
 
 pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
     if code >= 0 {
