@@ -310,6 +310,8 @@ pub enum Event {
     Quit,
     //(0, 0) is top left of window.
     MouseMoveInsideWindow(i32, i32),
+    //Global mouse move. Should not show up using `Window`.
+    MouseMoveGlobal(i32, i32),
     Move,
     Input(Key, Modifiers),
 }
@@ -367,6 +369,12 @@ pub enum Key {
     PageUp,
     PageDown,
     PrintScreen,
+}
+
+impl Key {
+    pub const fn into(self, modifiers: Modifiers) -> Option<Event> {
+        Some(Event::Input(self, modifiers))
+    }
 }
 
 #[derive(Debug, PartialEq)]

@@ -1,26 +1,29 @@
 use window::*;
 
 fn main() {
-    // Event based
+    // Blocking message
 
-    // unsafe {
-    // let instance = GetModuleHandleA(core::ptr::null());
-    // HOOK = SetWindowsHookExA(WH_MOUSE_LL, Some(mouse_proc), instance, 0);
-    // assert!(!HOOK.is_null());
-    // let mut msg: MSG = core::mem::zeroed();
-
-    // while GetMessageA(&mut msg, 0, 0, 0) > 0 {
-    //     DispatchMessageA(&msg);
+    // loop {
+    //     if let Some(event) = wait_for_global_event() {
+    //         println!("{:#?}", event);
+    //     }
     // }
 
-    // UnhookWindowsHookEx(HOOK);
-    // return;
-    // }
+    //Polling message
 
-    //Polling based
     loop {
-        if is_down(VK_LBUTTON) {
-            eprintln!("Left button pressed");
+        if let Some(event) = poll_global_event() {
+            println!("{:#?}", event);
         }
     }
+
+    //TODO: Is this needed?
+    // unsafe { UnhookWindowsHookEx(HOOK) };
+
+    //Polling
+    // loop {
+    //     if is_down(VK_LBUTTON) {
+    //         eprintln!("Left button pressed");
+    //     }
+    // }
 }
