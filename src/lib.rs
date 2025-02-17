@@ -146,41 +146,76 @@ pub struct POINT {
     pub y: i32,
 }
 
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Rect {
+    pub x: usize,
+    pub y: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl Rect {
+    pub const fn default() -> Self {
+        Self {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        }
+    }
+    pub const fn new(x: usize, y: usize, width: usize, height: usize) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+    pub const fn right(&self) -> usize {
+        self.x + self.width
+    }
+    pub const fn bottom(&self) -> usize {
+        self.y + self.height
+    }
+    pub const fn intersects(&self, other: Rect) -> bool {
+        self.x < other.x + other.width
+            && self.x + self.width > other.x
+            && self.y < other.y + other.height
+            && self.y + self.height > other.y
+    }
+    //TODO: Bounds checking
+    pub const fn inner(&self, w: usize, h: usize) -> Rect {
+        Rect {
+            x: self.x + w,
+            y: self.y + h,
+            width: self.width - 2 * w,
+            height: self.height - 2 * h,
+        }
+    }
+    pub const fn from_windows(rect: RECT) -> Rect {
+        Rect {
+            x: 0,
+            y: 0,
+            width: (rect.right - rect.left) as usize,
+            height: (rect.bottom - rect.top) as usize,
+        }
+    }
+}
+
+pub fn get_client_rect(hwnd: isize) -> Rect {
+    let mut rect = RECT::default();
+    let _ = unsafe { GetClientRect(hwnd, &mut rect) };
+    Rect::from_windows(rect)
+}
+
+///Don't use this.
 #[repr(C)]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct RECT {
-    pub left: i32,
-    pub top: i32,
-    pub right: i32,
-    pub bottom: i32,
-}
-
-impl RECT {
-    #[inline]
-    pub const fn new(left: i32, top: i32, right: i32, bottom: i32) -> Self {
-        Self {
-            left,
-            top,
-            right,
-            bottom,
-        }
-    }
-    #[inline]
-    pub const fn x(&self) -> i32 {
-        self.left
-    }
-    #[inline]
-    pub const fn y(&self) -> i32 {
-        self.top
-    }
-    #[inline]
-    pub const fn width(&self) -> i32 {
-        self.right - self.left
-    }
-    #[inline]
-    pub const fn height(&self) -> i32 {
-        self.bottom - self.top
-    }
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
 }
 
 #[repr(C)]
@@ -368,45 +403,34 @@ pub fn physical_mouse_pos() -> (i32, i32) {
     (point.x, point.y)
 }
 
-///To get the window bounds excluding the drop shadow, use DwmGetWindowAttribute, specifying DWMWA_EXTENDED_FRAME_BOUNDS. Note that unlike the Window Rect, the DWM Extended Frame Bounds are not adjusted for DPI. Getting the extended frame bounds can only be done after the window has been shown at least once.
-pub fn screen_area_no_shadow(_hwnd: isize) -> RECT {
-    todo!();
-}
+// ///WinRect coordiantes can be negative.
+// #[inline]
+// pub fn screen_area(hwnd: isize) -> RECT {
+//     let mut rect = RECT::default();
+//     let _ = unsafe { GetWindowRect(hwnd, &mut rect) };
+//     rect
+// }
 
-///WinRect coordiantes can be negative.
-pub fn screen_area(hwnd: isize) -> RECT {
-    let mut rect = RECT::default();
-    let _ = unsafe { GetWindowRect(hwnd, &mut rect) };
-    rect
-}
+// ///WinRect coordiantes *should* never be negative.
+// #[inline]
+// pub fn client_area(hwnd: isize) -> Rect {
+//     let mut rect = RECT::default();
+//     let _ = unsafe { GetClientRect(hwnd, &mut rect) };
+//     Rect::from_windows(rect)
+// }
 
-///WinRect coordiantes *should* never be negative.
-pub fn client_area(hwnd: isize) -> RECT {
-    let mut rect = RECT::default();
-    let _ = unsafe { GetClientRect(hwnd, &mut rect) };
-    rect
-}
-
-/// The desktop window is the area on top of which other windows are painted.
-pub fn desktop_area() -> RECT {
-    unsafe { client_area(GetDesktopWindow()) }
-}
-
-// pub fn is_maximized(window: HWND) -> bool {
-//     unsafe {
-//         let mut placement: WINDOWPLACEMENT = mem::zeroed();
-//         placement.length = mem::size_of::<WINDOWPLACEMENT>() as u32;
-//         GetWindowPlacement(window, &mut placement);
-//         placement.showCmd == SW_MAXIMIZE
-//     }
+// /// The desktop window is the area on top of which other windows are painted.
+// #[inline]
+// pub fn desktop_area() -> RECT {
+//     unsafe { client_area(GetDesktopWindow()) }
 // }
 
 #[inline]
-pub fn LOWORD(l: DWORD) -> WORD {
-    (l & 0xffff) as WORD
+pub fn LOWORD(l: u32) -> u16 {
+    (l & 0xffff) as u16
 }
 
 #[inline]
-pub fn HIWORD(l: DWORD) -> WORD {
-    ((l >> 16) & 0xffff) as WORD
+pub fn HIWORD(l: u32) -> u16 {
+    ((l >> 16) & 0xffff) as u16
 }

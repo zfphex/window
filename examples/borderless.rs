@@ -1,14 +1,9 @@
 use window::*;
 
 fn main() {
-    let mut window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
-    let mut window2 = create_window("Window2", 600, 400, WindowStyle::DEFAULT);
+    let mut window = create_window("Window", 50, 50, WindowStyle::BORDERLESS);
 
     loop {
-        match window2.event() {
-            _ => {}
-        }
-
         match window.event() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
@@ -17,8 +12,5 @@ fn main() {
 
         window.buffer.fill(0x4fa3a8);
         window.draw();
-
-        window2.buffer.fill(0x165d6a);
-        window2.draw();
     }
 }

@@ -1,38 +1,145 @@
 use crate::*;
-use crossbeam_queue::SegQueue;
-use std::pin::Pin;
-
 pub const DEFAULT_DPI: f32 = 96.0;
 
 pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+pub fn create_window(
+    title: &str,
+    width: i32,
+    height: i32,
+    style: WindowStyle,
+) -> std::pin::Pin<Box<Window>> {
+    unsafe {
+        if SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) == 0 {
+            panic!("Only Windows 10 (1607) or later is supported.")
+        };
+
+        //Title must be null terminated.
+        let title = std::ffi::CString::new(title).unwrap();
+
+        let wnd_class = WNDCLASSA {
+            style: 0,
+            wnd_proc: Some(wnd_proc),
+            cls_extra: 0,
+            wnd_extra: 0,
+            instance: 0,
+            icon: 0,
+            //Prevent cursor from changing when loading.
+            cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
+            background: 0,
+            menu_name: core::mem::zeroed(),
+            class_name: title.as_ptr() as *const u8,
+        };
+
+        //Adjust the rect to fit exactly what the user requested.
+        //Windows has padding and other weird nonsense when trying set the width and height.
+        //Not needed anymore?
+
+        // let mut rect = RECT {
+        //     left: 0,
+        //     top: 0,
+        //     right: width as i32,
+        //     bottom: height as i32,
+        // };
+        // AdjustWindowRectEx(&mut rect, style.style, 0, style.exstyle);
+
+        RegisterClassA(&wnd_class);
+
+        let hwnd = CreateWindowExA(
+            style.exstyle,
+            title.as_ptr() as *const u8,
+            title.as_ptr() as *const u8,
+            style.style,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            //These are adjusted later for DPI scaling.
+            width,
+            height,
+            0,
+            0,
+            0,
+            null(),
+        );
+
+        //Get the display scale factor 1.0, 1.25, 1.5, 1.75, can also be custom.
+        let scale = GetDpiForWindow(hwnd) as f32 / DEFAULT_DPI;
+        let mut area = get_client_rect(hwnd);
+
+        //Scale the size of the window to match the display scale.
+        //AdjustWindowRect used to be needed, but isn't anymore, I'm not sure why?
+        if scale != 1.0 {
+            SetWindowPos(
+                hwnd,
+                0,
+                area.x as i32,
+                area.y as i32,
+                (area.width as f32 * scale) as i32,
+                (area.height as f32 * scale) as i32,
+                SWP_FRAMECHANGED,
+            );
+            //Update the area since SetWindowPos will change it.
+            area = get_client_rect(hwnd);
+        }
+
+        assert_ne!(hwnd, 0);
+        let dc = GetDC(hwnd);
+
+        println!("Scale: {}", scale);
+
+        WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
+
+        //Safety: This *should* be pinned.
+        let window = Box::pin(Window {
+            //Re-grab the area after calling SetWindowPos.
+            area,
+            hwnd,
+            dc,
+            display_scale: scale,
+            screen_mouse_pos: (0, 0),
+            queue: crossbeam_queue::SegQueue::new(),
+            buffer: vec![0u32; area.width * area.height],
+            bitmap: BITMAPINFO::new(area.width as i32, area.height as i32),
+        });
+
+        let addr = &*window as *const Window;
+        let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
+        assert!(result <= 0);
+
+        window
+    }
+}
+
 #[derive(Debug)]
 pub struct Window {
     pub hwnd: isize,
-    pub dc: *mut c_void,
     pub screen_mouse_pos: (i32, i32),
     pub display_scale: f32,
+    //GDI related
+    pub dc: *mut c_void,
+    pub buffer: Vec<u32>,
+    pub bitmap: BITMAPINFO,
+    pub area: Rect,
 
     //TODO: Remove, this is super overkill.
     //The only events going through this now are Quit and Dpi.
     //I think an array or vec with small capacity would be fine.
     //I do like that it has interior mutability since it's atomic.
-    pub queue: SegQueue<Event>,
+    pub queue: crossbeam_queue::SegQueue<Event>,
 }
 
 impl Window {
     ///Updates the width and height based on the display scale.
     pub fn rescale_window(&self) {
-        let area = client_area(self.hwnd);
+        let area = self.client_area();
         let (width, height) = if self.display_scale == 1.0 {
             (
-                area.width() as f32 / self.display_scale,
-                area.height() as f32 / self.display_scale,
+                area.width as f32 / self.display_scale,
+                area.height as f32 / self.display_scale,
             )
         } else {
             (
-                area.width() as f32 * self.display_scale,
-                area.height() as f32 * self.display_scale,
+                area.width as f32 * self.display_scale,
+                area.height as f32 * self.display_scale,
             )
         };
 
@@ -40,26 +147,32 @@ impl Window {
             SetWindowPos(
                 self.hwnd,
                 0,
-                area.left,
-                area.top,
+                area.x as i32,
+                area.y as i32,
                 width as i32,
                 height as i32,
                 SWP_FRAMECHANGED,
             )
         };
     }
-    pub fn client_area(&self) -> RECT {
-        client_area(self.hwnd)
+
+    #[inline]
+    pub fn client_area(&self) -> Rect {
+        let mut rect = RECT::default();
+        let _ = unsafe { GetClientRect(self.hwnd, &mut rect) };
+        Rect::from_windows(rect)
     }
-    pub fn screen_area(&self) -> RECT {
-        screen_area(self.hwnd)
+
+    #[inline(always)]
+    pub const fn width(&self) -> usize {
+        self.area.width
     }
-    pub fn width(&self) -> i32 {
-        client_area(self.hwnd).width()
+
+    #[inline(always)]
+    pub const fn height(&self) -> usize {
+        self.area.height
     }
-    pub fn height(&self) -> i32 {
-        client_area(self.hwnd).height()
-    }
+
     pub fn borderless(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::BORDERLESS.style as isize);
@@ -77,30 +190,31 @@ impl Window {
         };
     }
 
-    pub fn move_window(&self, x: i32, y: i32) {
-        let area = client_area(self.hwnd);
-        unsafe { MoveWindow(self.hwnd, x, y, area.width(), area.height(), 0) };
+    pub fn move_window(&self, x: usize, y: usize) {
+        let area = self.client_area();
+        unsafe {
+            MoveWindow(
+                self.hwnd,
+                x as i32,
+                y as i32,
+                area.width as i32,
+                area.height as i32,
+                0,
+            )
+        };
     }
 
-    pub fn set_dimensions(&self, width: i32, height: i32) {
+    pub fn set_pos(&self, x: usize, y: usize, width: usize, height: usize, flags: u32) {
         unsafe {
             SetWindowPos(
                 self.hwnd,
                 0,
-                0,
-                0,
-                width,
-                height,
-                SWP_FRAMECHANGED | SWP_NOSIZE,
+                x as i32,
+                y as i32,
+                width as i32,
+                height as i32,
+                flags,
             );
-        }
-        todo!("test this");
-    }
-
-    pub fn set_pos(&self, x: i32, y: i32, width: i32, height: i32, flags: u32) {
-        unsafe {
-            //SWP_FRAMECHANGED
-            SetWindowPos(self.hwnd, 0, x, y, width, height, flags);
         }
     }
 
@@ -120,26 +234,6 @@ impl Window {
             );
         };
     }
-    //TODO:
-    pub fn draw(&self, _buffer: &[u32], _bitmap: BITMAPINFO) {
-        // unsafe {
-        //     StretchDIBits(
-        //         self.context,
-        //         0,
-        //         0,
-        //         self.width,
-        //         self.height,
-        //         0,
-        //         0,
-        //         self.width,
-        //         self.height,
-        //         buffer.as_mut_ptr() as *const c_void,
-        //         &bitmap,
-        //         0,
-        //         SRCCOPY,
-        //     )
-        // };
-    }
     pub fn event(&self) -> Option<Event> {
         //Window procedure events take presidence here.
         if let Some(event) = self.queue.pop() {
@@ -147,6 +241,32 @@ impl Window {
         };
 
         unsafe { event(Some(self.hwnd)) }
+    }
+    //TODO: There is no support for depth.
+    pub fn draw(&mut self) {
+        unsafe {
+            StretchDIBits(
+                self.dc,
+                0,
+                0,
+                self.area.width as i32,
+                self.area.height as i32,
+                0,
+                0,
+                self.area.width as i32,
+                self.area.height as i32,
+                self.buffer.as_mut_ptr() as *const c_void,
+                &self.bitmap,
+                0,
+                SRCCOPY,
+            );
+        }
+
+        //Limit the framerate to the primary monitors refresh rate.
+        //TODO: Wait timers are likely better for all refresh rates.
+        //Unsure why my limiters are inaccurate at higher refresh rates though.
+        //Doesn't seem to work on the secondary monitor, seeing huge cpu usage.
+        unsafe { DwmFlush() };
     }
 }
 
@@ -190,109 +310,6 @@ impl Default for WindowStyle {
     }
 }
 
-pub fn create_window(
-    title: &str,
-    // x: Option<i32>,
-    // y: Option<i32>,
-    width: i32,
-    height: i32,
-    style: WindowStyle,
-) -> Pin<Box<Window>> {
-    unsafe {
-        if SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) == 0 {
-            panic!("Only Windows 10 (1607) or later is supported.")
-        };
-
-        //Title must be null terminated.
-        let title = std::ffi::CString::new(title).unwrap();
-
-        let wnd_class = WNDCLASSA {
-            style: 0,
-            wnd_proc: Some(wnd_proc),
-            cls_extra: 0,
-            wnd_extra: 0,
-            instance: 0,
-            icon: 0,
-            //Prevent cursor from changing when loading.
-            cursor: LoadCursorW(null_mut(), IDC_ARROW) as isize,
-            background: 0,
-            menu_name: core::mem::zeroed(),
-            class_name: title.as_ptr() as *const u8,
-        };
-
-        let _ = RegisterClassA(&wnd_class);
-
-        //Adjust the rect to fit exactly what the user requested.
-        //Windows has padding and other weird nonsense when trying set the width and height.
-        let mut rect = RECT::new(0, 0, width, height);
-        AdjustWindowRectEx(&mut rect, style.style, 0, style.exstyle);
-
-        let adjusted_width = rect.right - rect.left;
-        let adjusted_height = rect.bottom - rect.top;
-
-        let hwnd = CreateWindowExA(
-            style.exstyle,
-            title.as_ptr() as *const u8,
-            title.as_ptr() as *const u8,
-            style.style,
-            // WindowStyle::DEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            adjusted_width,
-            adjusted_height,
-            // rect.left,
-            // rect.top,
-            // rect.width(),
-            // rect.height(),
-            0,
-            0,
-            0,
-            null(),
-        );
-
-        assert_ne!(hwnd, 0);
-        let dc = GetDC(hwnd);
-
-        let display_scale = GetDpiForWindow(hwnd) as f32 / DEFAULT_DPI;
-
-        //There is no way to know which monitor the window will be on and what DPI it will have before creation.
-        //We then need to scale the window after creation.
-        if display_scale != 1.0 {
-            let area = client_area(hwnd);
-            SetWindowPos(
-                hwnd,
-                0,
-                area.left,
-                area.top,
-                (area.width() as f32 * display_scale) as i32,
-                (area.height() as f32 * display_scale) as i32,
-                SWP_FRAMECHANGED,
-            );
-        }
-
-        WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
-
-        //Safety: This *should* be pinned.
-        let window = Box::pin(Window {
-            hwnd,
-            dc,
-            display_scale,
-            screen_mouse_pos: (0, 0),
-            queue: SegQueue::new(),
-        });
-
-        // if display_scale == 1.0 {
-        //     window.rescale_window();
-        // }
-
-        let addr = &*window as *const Window;
-        let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
-        assert!(result <= 0);
-
-        window
-    }
-}
-
 pub unsafe extern "system" fn wnd_proc(
     hwnd: isize,
     msg: u32,
@@ -314,7 +331,25 @@ pub unsafe extern "system" fn wnd_proc(
 
     match msg {
         WM_DESTROY | WM_CLOSE => {
+            //Not technically needed.
+            PostQuitMessage(0);
+            assert!(DestroyWindow(hwnd) != 0);
             window.queue.push(Event::Quit);
+            return 0;
+        }
+        //TODO: Could add a feature flag to skip this for no GDI use.
+        //Do it in the UI library for now?
+        WM_SIZE => {
+            let width = LOWORD(lparam as u32) as i32;
+            let height = HIWORD(lparam as u32) as i32;
+
+            mini::info!("Resizing to width: {}, height: {}", width, height);
+
+            window.buffer.clear();
+            window.buffer.resize(width as usize * height as usize, 0);
+            window.bitmap = BITMAPINFO::new(width, height);
+            window.area = Rect::new(0, 0, width as usize, height as usize);
+
             return 0;
         }
         //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged
@@ -330,10 +365,9 @@ pub unsafe extern "system" fn wnd_proc(
             assert!(!ptr.is_null());
             let rect = &(*ptr);
 
-            let old = client_area(hwnd);
-            //Calculate the original width and height.
-            let original_width = (old.right - old.left) as f32 / window.display_scale;
-            let original_height = (old.bottom - old.top) as f32 / window.display_scale;
+            let old = window.client_area();
+            let original_width = old.width as f32 / window.display_scale;
+            let original_height = old.height as f32 / window.display_scale;
 
             let (width, height) = if scale == 1.0 {
                 (original_width, original_height)
@@ -341,7 +375,7 @@ pub unsafe extern "system" fn wnd_proc(
                 (original_width * scale, original_height * scale)
             };
 
-            mini::info!("Rescaling Window x: {}, y: {}, width: {}, height: {}, old_scale: {}, new_scale: {}", old.top, old.left, width.round(), height.round(), window.display_scale, scale);
+            mini::info!("Rescaling Window x: {}, y: {}, width: {}, height: {}, old_scale: {}, new_scale: {}", old.x, old.y, width.round(), height.round(), window.display_scale, scale);
 
             SetWindowPos(
                 hwnd,
@@ -350,8 +384,6 @@ pub unsafe extern "system" fn wnd_proc(
                 rect.top,
                 width.round() as i32,
                 height.round() as i32,
-                // rect.right - rect.left,
-                // rect.bottom - rect.top,
                 SWP_NOZORDER | SWP_NOACTIVATE,
             );
 
