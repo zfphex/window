@@ -9,6 +9,7 @@ pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug)]
 pub struct Window {
     pub hwnd: isize,
+    pub dc: *mut c_void,
     pub screen_mouse_pos: (i32, i32),
     pub display_scale: f32,
 
@@ -249,6 +250,9 @@ pub fn create_window(
             null(),
         );
 
+        assert_ne!(hwnd, 0);
+        let dc = GetDC(hwnd);
+
         let display_scale = GetDpiForWindow(hwnd) as f32 / DEFAULT_DPI;
 
         //There is no way to know which monitor the window will be on and what DPI it will have before creation.
@@ -266,13 +270,13 @@ pub fn create_window(
             );
         }
 
-        assert_ne!(hwnd, 0);
         WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
 
         //Safety: This *should* be pinned.
         let window = Box::pin(Window {
-            display_scale,
             hwnd,
+            dc,
+            display_scale,
             screen_mouse_pos: (0, 0),
             queue: SegQueue::new(),
         });

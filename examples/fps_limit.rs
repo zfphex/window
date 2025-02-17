@@ -1,54 +1,12 @@
-use std::{
-    os::raw::c_void,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 use window::*;
-// use windows::Win32::System::Threading::SetWaitableTimer;
-
-#[link(name = "dwmapi")]
-#[link(name = "winmm")]
-unsafe extern "system" {
-    pub fn DwmFlush() -> i32;
-    pub fn timeBeginPeriod(uPeriod: UINT) -> u32;
-    pub fn timeEndPeriod(uPeriod: UINT) -> u32;
-    pub fn CreateWaitableTimerA(
-        lpTimerAttributes: *mut SECURITY_ATTRIBUTES,
-        bManualReset: BOOL,
-        lpTimerName: LPCSTR,
-    ) -> HANDLE;
-    pub fn SetWaitableTimer(
-        hTimer: HANDLE,
-        lpDueTime: *const i64,
-        lPeriod: LONG,
-        pfnCompletionRoutine: PTIMERAPCROUTINE,
-        lpArgToCompletionRoutine: *mut c_void,
-        fResume: BOOL,
-    ) -> BOOL;
-    pub fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: DWORD) -> DWORD;
-    pub fn QueryPerformanceCounter(lpPerformanceCount: *mut i64) -> BOOL;
-    pub fn QueryPerformanceFrequency(lpFrequency: *mut i64) -> BOOL;
-}
-
-pub type PTIMERAPCROUTINE = Option<
-    unsafe extern "system" fn(
-        lpArgToCompletionRoutine: *mut c_void,
-        dwTimerLowValue: DWORD,
-        dwTimerHighValue: DWORD,
-    ),
->;
-
-#[repr(C)]
-pub struct SECURITY_ATTRIBUTES {
-    pub nLength: DWORD,
-    pub lpSecurityDescriptor: *mut c_void,
-    pub bInheritHandle: BOOL,
-}
 
 fn main() {
     // dwm_flush();
     wait_timer();
 }
 
+#[allow(unused)]
 fn dwm_flush() {
     let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
     let mut frame_counter = 0;
@@ -77,6 +35,7 @@ fn dwm_flush() {
 }
 
 //This is not very accurate, likely as bad as sleep and more complex.
+#[allow(unused)]
 fn wait_timer() {
     unsafe {
         let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
