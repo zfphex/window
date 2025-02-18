@@ -1,11 +1,10 @@
-use std::sync::Once;
-
 use crate::*;
+use std::sync::Once;
 
 pub const WH_MOUSE_LL: i32 = 14;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MSLLHOOKSTRUCT {
     pub pt: POINT,
     pub mouseData: DWORD,
@@ -36,18 +35,50 @@ extern "system" {
 pub static mut HOOK: *mut c_void = core::ptr::null_mut();
 pub static mut ONCE: Once = Once::new();
 
+pub const USER_MOUSEMOVE: u32 = WM_USER + 1;
+pub const USER_MOUSEWHEEL: u32 = WM_USER + 2;
+pub const USER_LBUTTONDOWN: u32 = WM_USER + 3;
+pub const USER_LBUTTONUP: u32 = WM_USER + 4;
+pub const USER_LBUTTONDBLCLK: u32 = WM_USER + 5;
+pub const USER_RBUTTONDOWN: u32 = WM_USER + 6;
+pub const USER_RBUTTONUP: u32 = WM_USER + 7;
+pub const USER_RBUTTONDBLCLK: u32 = WM_USER + 8;
+pub const USER_MBUTTONDOWN: u32 = WM_USER + 9;
+pub const USER_MBUTTONUP: u32 = WM_USER + 10;
+pub const USER_MBUTTONDBLCLK: u32 = WM_USER + 11;
+pub const USER_XBUTTONDOWN: u32 = WM_USER + 12;
+pub const USER_XBUTTONUP: u32 = WM_USER + 13;
+pub const USER_XBUTTONDBLCLK: u32 = WM_USER + 14;
+
 //https://github.com/fulara/mki-rust/blob/master/src/windows/mouse.rs
 pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
     if code >= 0 {
+        let msg = match w_param as u32 {
+            WM_MOUSEMOVE => USER_MOUSEMOVE,
+            WM_MOUSEWHEEL => USER_MOUSEWHEEL,
+            WM_LBUTTONDOWN => USER_LBUTTONDOWN,
+            WM_LBUTTONUP => USER_LBUTTONUP,
+            WM_LBUTTONDBLCLK => USER_LBUTTONDBLCLK,
+            WM_RBUTTONDOWN => USER_RBUTTONDOWN,
+            WM_RBUTTONUP => USER_RBUTTONUP,
+            WM_RBUTTONDBLCLK => USER_RBUTTONDBLCLK,
+            WM_MBUTTONDOWN => USER_MBUTTONDOWN,
+            WM_MBUTTONUP => USER_MBUTTONUP,
+            WM_MBUTTONDBLCLK => USER_MBUTTONDBLCLK,
+            WM_XBUTTONDOWN => USER_XBUTTONDOWN,
+            WM_XBUTTONUP => USER_XBUTTONUP,
+            WM_XBUTTONDBLCLK => USER_XBUTTONDBLCLK,
+            _ => return CallNextHookEx(HOOK, code, w_param, l_param),
+        };
+
         let thread_id = GetCurrentThreadId();
-        //Pass the message back to the user.
-        PostThreadMessageA(thread_id, w_param as u32, w_param, l_param);
+        assert!(PostThreadMessageA(thread_id, msg, w_param, l_param) != 0);
     }
 
     CallNextHookEx(HOOK, code, w_param, l_param)
 }
 
-pub fn poll_global_event() -> Option<Event> {
+pub fn poll_global_events() -> Option<Event> {
     unsafe {
         ONCE.call_once(|| {
             let instance = GetModuleHandleA(core::ptr::null());
@@ -57,11 +88,18 @@ pub fn poll_global_event() -> Option<Event> {
 
         let mut msg: MSG = core::mem::zeroed();
         let result = PeekMessageA(&mut msg, 0, 0, 0, PM_REMOVE);
-        handle_mouse_msg(msg, result)
+
+        if msg.message > WM_USER {
+            handle_mouse_msg(msg, result)
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+            None
+        }
     }
 }
 
-pub fn wait_for_global_event() -> Option<Event> {
+pub fn wait_for_global_events() -> Option<Event> {
     unsafe {
         ONCE.call_once(|| {
             let instance = GetModuleHandleA(core::ptr::null());
@@ -71,7 +109,12 @@ pub fn wait_for_global_event() -> Option<Event> {
 
         let mut msg: MSG = core::mem::zeroed();
         let result = GetMessageA(&mut msg, 0, 0, 0);
-        handle_mouse_msg(msg, result)
+
+        if msg.message > WM_USER {
+            handle_mouse_msg(msg, result)
+        } else {
+            None
+        }
     }
 }
 
@@ -87,14 +130,16 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
 
     let w_param = msg.w_param;
     let ptr = msg.l_param as *const MSLLHOOKSTRUCT;
-    assert!(!ptr.is_null());
-    let mouse = unsafe { &*ptr };
+    if ptr.is_null() {
+        return None;
+    }
 
+    let mouse = unsafe { &*(msg.l_param as *const MSLLHOOKSTRUCT) };
     let modifiers = modifiers();
 
     match msg.message {
-        WM_MOUSEMOVE => Some(Event::MouseMoveGlobal(mouse.pt.x as i32, mouse.pt.y as i32)),
-        WM_MOUSEWHEEL => {
+        USER_MOUSEMOVE => Some(Event::MouseMoveGlobal(mouse.pt.x as i32, mouse.pt.y as i32)),
+        USER_MOUSEWHEEL => {
             const WHEEL_DELTA: i16 = 120;
             let value = (w_param >> 16) as i16;
             let delta = value as f32 / WHEEL_DELTA as f32;
@@ -104,19 +149,16 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
                 Some(Event::Input(Key::ScrollDown, modifiers))
             }
         }
-        WM_LBUTTONDOWN => Some(Event::Input(Key::LeftMouseDown, modifiers)),
-        WM_LBUTTONUP => Some(Event::Input(Key::LeftMouseUp, modifiers)),
-        WM_LBUTTONDBLCLK => Some(Event::Input(Key::LeftMouseDoubleClick, modifiers)),
-        WM_RBUTTONDOWN => Some(Event::Input(Key::RightMouseDown, modifiers)),
-        WM_RBUTTONUP => Some(Event::Input(Key::RightMouseUp, modifiers)),
-        WM_RBUTTONDBLCLK => Some(Event::Input(Key::RightMouseDoubleClick, modifiers)),
-        WM_MBUTTONDOWN => Some(Event::Input(Key::MiddleMouseDown, modifiers)),
-        WM_MBUTTONUP => Some(Event::Input(Key::MiddleMouseUp, modifiers)),
-        WM_MBUTTONDBLCLK => Some(Event::Input(Key::MiddleMouseDoubleClick, modifiers)),
-        WM_XBUTTONDOWN => {
-            //https://www.autohotkey.com/docs/v1/KeyList.htm#mouse-advanced
-            //XButton1	4th mouse button. Typically performs the same function as Browser_Back.
-            //XButton2	5th mouse button. Typically performs the same function as Browser_Forward.
+        USER_LBUTTONDOWN => Some(Event::Input(Key::LeftMouseDown, modifiers)),
+        USER_LBUTTONUP => Some(Event::Input(Key::LeftMouseUp, modifiers)),
+        USER_LBUTTONDBLCLK => Some(Event::Input(Key::LeftMouseDoubleClick, modifiers)),
+        USER_RBUTTONDOWN => Some(Event::Input(Key::RightMouseDown, modifiers)),
+        USER_RBUTTONUP => Some(Event::Input(Key::RightMouseUp, modifiers)),
+        USER_RBUTTONDBLCLK => Some(Event::Input(Key::RightMouseDoubleClick, modifiers)),
+        USER_MBUTTONDOWN => Some(Event::Input(Key::MiddleMouseDown, modifiers)),
+        USER_MBUTTONUP => Some(Event::Input(Key::MiddleMouseUp, modifiers)),
+        USER_MBUTTONDBLCLK => Some(Event::Input(Key::MiddleMouseDoubleClick, modifiers)),
+        USER_XBUTTONDOWN => {
             let btn = HIWORD(mouse.mouseData);
             match btn {
                 1 => Some(Event::Input(Key::Mouse4Down, modifiers)),
@@ -124,7 +166,7 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
                 _ => None,
             }
         }
-        WM_XBUTTONUP => {
+        USER_XBUTTONUP => {
             let btn = HIWORD(mouse.mouseData);
             match btn {
                 1 => Some(Event::Input(Key::Mouse4Up, modifiers)),
@@ -132,7 +174,7 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
                 _ => None,
             }
         }
-        WM_XBUTTONDBLCLK => {
+        USER_XBUTTONDBLCLK => {
             let btn = HIWORD(mouse.mouseData);
             match btn {
                 1 => Some(Event::Input(Key::Mouse4DoubleClick, modifiers)),

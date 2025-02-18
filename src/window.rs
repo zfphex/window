@@ -84,8 +84,6 @@ pub fn create_window(
         assert_ne!(hwnd, 0);
         let dc = GetDC(hwnd);
 
-        println!("Scale: {}", scale);
-
         WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
 
         //Safety: This *should* be pinned.
@@ -190,21 +188,7 @@ impl Window {
         };
     }
 
-    pub fn move_window(&self, x: usize, y: usize) {
-        let area = self.client_area();
-        unsafe {
-            MoveWindow(
-                self.hwnd,
-                x as i32,
-                y as i32,
-                area.width as i32,
-                area.height as i32,
-                0,
-            )
-        };
-    }
-
-    pub fn set_pos(&self, x: usize, y: usize, width: usize, height: usize, flags: u32) {
+    pub fn set_pos(&mut self, x: usize, y: usize, width: usize, height: usize, flags: u32) {
         unsafe {
             SetWindowPos(
                 self.hwnd,
@@ -261,16 +245,14 @@ impl Window {
                 SRCCOPY,
             );
         }
-
-        //Limit the framerate to the primary monitors refresh rate.
-        //TODO: Wait timers are likely better for all refresh rates.
-        //Unsure why my limiters are inaccurate at higher refresh rates though.
-        //Doesn't seem to work on the secondary monitor, seeing huge cpu usage.
-        unsafe { DwmFlush() };
     }
 }
 
 // pub const TOP: u32 = WS_EX_TOPMOST;
+
+// pub fn style() -> WindowStyle {
+//     WindowStyle::DEFAULT
+// }
 
 pub struct WindowStyle {
     pub style: u32,

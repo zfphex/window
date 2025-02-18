@@ -1,7 +1,8 @@
-#![allow(non_snake_case, static_mut_refs)]
+#![allow(non_snake_case, static_mut_refs, non_camel_case_types)]
 mod clipboard;
 mod constants;
 mod dark_mode;
+mod debug;
 mod event;
 mod fps;
 mod gdi;
@@ -12,6 +13,7 @@ mod window;
 pub use clipboard::*;
 pub use constants::*;
 pub use dark_mode::*;
+pub use debug::*;
 pub use event::*;
 pub use fps::*;
 pub use gdi::*;

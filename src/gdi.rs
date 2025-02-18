@@ -79,6 +79,17 @@ extern "system" {
     pub fn EndPath(hdc: *mut c_void) -> i32;
     pub fn SelectClipPath(hdc: *mut c_void, mode: i32) -> BOOL;
     pub fn DeleteObject(ho: *mut c_void) -> BOOL;
+    pub fn BitBlt(
+        hdc: *mut c_void,
+        x: i32,
+        y: i32,
+        cx: i32,
+        cy: i32,
+        hdcSrc: *mut c_void,
+        x1: i32,
+        y1: i32,
+        rop: DWORD,
+    ) -> BOOL;
 }
 
 #[repr(C)]
