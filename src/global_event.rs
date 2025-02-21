@@ -50,12 +50,22 @@ pub const USER_XBUTTONDOWN: u32 = WM_USER + 12;
 pub const USER_XBUTTONUP: u32 = WM_USER + 13;
 pub const USER_XBUTTONDBLCLK: u32 = WM_USER + 14;
 
-//https://github.com/fulara/mki-rust/blob/master/src/windows/mouse.rs
 pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
     if code >= 0 {
         let msg = match w_param as u32 {
             WM_MOUSEMOVE => USER_MOUSEMOVE,
-            WM_MOUSEWHEEL => USER_MOUSEWHEEL,
+            WM_MOUSEWHEEL => {
+                let thread_id = GetCurrentThreadId();
+                //For some reaons the mouse data is not working when I send it over.
+                let mouse = unsafe { &*(l_param as *const MSLLHOOKSTRUCT) };
+                //Just pass the delta into the w_param and convert it back to i16.
+                //Should be fine right? 😏
+                let delta = (mouse.mouseData >> 16) as i16;
+                assert!(
+                    PostThreadMessageA(thread_id, USER_MOUSEWHEEL, delta as usize, l_param) != 0
+                );
+                return CallNextHookEx(HOOK, code, w_param, l_param);
+            }
             WM_LBUTTONDOWN => USER_LBUTTONDOWN,
             WM_LBUTTONUP => USER_LBUTTONUP,
             WM_LBUTTONDBLCLK => USER_LBUTTONDBLCLK,
@@ -128,7 +138,6 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
         _ => {}
     }
 
-    let w_param = msg.w_param;
     let ptr = msg.l_param as *const MSLLHOOKSTRUCT;
     if ptr.is_null() {
         return None;
@@ -141,8 +150,7 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
         USER_MOUSEMOVE => Some(Event::MouseMoveGlobal(mouse.pt.x as i32, mouse.pt.y as i32)),
         USER_MOUSEWHEEL => {
             const WHEEL_DELTA: i16 = 120;
-            let value = (w_param >> 16) as i16;
-            let delta = value as f32 / WHEEL_DELTA as f32;
+            let delta = (msg.w_param as i16) as f32 / WHEEL_DELTA as f32;
             if delta >= 0.0 {
                 Some(Event::Input(Key::ScrollUp, modifiers))
             } else {

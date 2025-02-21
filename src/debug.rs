@@ -10,6 +10,7 @@ unsafe extern "system" {
 
 }
 #[repr(C)]
+#[derive(Debug)]
 pub struct MEMORY_BASIC_INFORMATION {
     pub BaseAddress: *mut c_void,
     pub AllocationBase: *mut c_void,

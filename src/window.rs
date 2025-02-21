@@ -5,6 +5,8 @@ pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 pub fn create_window(
     title: &str,
+    x: i32,
+    y: i32,
     width: i32,
     height: i32,
     style: WindowStyle,
@@ -50,8 +52,10 @@ pub fn create_window(
             title.as_ptr() as *const u8,
             title.as_ptr() as *const u8,
             style.style,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
+            if x == 0 { CW_USEDEFAULT } else { x },
+            if y == 0 { CW_USEDEFAULT } else { y },
+            // CW_USEDEFAULT,
+            // CW_USEDEFAULT,
             //These are adjusted later for DPI scaling.
             width,
             height,

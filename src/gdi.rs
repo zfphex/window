@@ -1,4 +1,64 @@
+use mini::profile;
+
 use crate::*;
+
+pub fn capture_virtual_screen() -> (Vec<u32>, i32, i32, i32, i32) {
+    profile!();
+    unsafe {
+        let width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        let height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        let left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        let top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+
+        //Get the device context for virtual screen
+        let hdc_screen = GetDC(0);
+        assert!(!hdc_screen.is_null());
+
+        let hdc_mem = CreateCompatibleDC(hdc_screen);
+        assert!(!hdc_mem.is_null());
+
+        let hbm = CreateCompatibleBitmap(hdc_screen, width, height);
+        assert!(!hbm.is_null());
+
+        //Select the bitmap into the memory DC
+        //I don't understand this function at all.
+        let old_obj = SelectObject(hdc_mem, hbm as HANDLE);
+        assert!(!old_obj.is_null());
+
+        //Copy screen to bitmap
+        assert!(BitBlt(hdc_mem, 0, 0, width, height, hdc_screen, left, top, SRCCOPY) != 0);
+
+        let mut bitmap_info = BITMAPINFO::new(width, height);
+        // let data_size = (width * height * 4) as usize;
+        // let mut pixel_data: Vec<u8> = vec![0; data_size];
+
+        let data_size = (width * height) as usize;
+        let mut pixel_data: Vec<u32> = vec![0; data_size];
+
+        //Copy from hbm to pixel_data
+        assert!(
+            GetDIBits(
+                hdc_mem,
+                hbm,
+                0,
+                height as u32,
+                pixel_data.as_mut_ptr() as *mut _,
+                &mut bitmap_info,
+                DIB_RGB_COLORS,
+            ) != 0
+        );
+
+        //Windows is a great garbage collector.
+        //This takes like 10ms so why bother?
+
+        // SelectObject(hdc_mem, old_obj);
+        // DeleteObject(hbm as HANDLE);
+        // DeleteDC(hdc_mem);
+        // ReleaseDC(0, hdc_screen);
+
+        (pixel_data, left, top, width, height)
+    }
+}
 
 pub const SRCCOPY: u32 = 0x00CC0020;
 pub const DEFAULT_CHARSET: DWORD = 1;
@@ -90,6 +150,17 @@ extern "system" {
         y1: i32,
         rop: DWORD,
     ) -> BOOL;
+    pub fn GetDIBits(
+        hdc: *mut c_void,
+        hbm: *mut c_void,
+        start: UINT,
+        cLines: UINT,
+        lpvBits: *mut c_void,
+        lpbmi: *mut BITMAPINFO,
+        usage: UINT,
+    ) -> i32;
+    pub fn ReleaseDC(hWnd: HWND, hDC: *mut c_void) -> i32;
+    pub fn CreateCompatibleBitmap(hdc: *mut c_void, cx: i32, cy: i32) -> *mut c_void;
 }
 
 #[repr(C)]
