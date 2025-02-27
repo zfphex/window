@@ -8,7 +8,7 @@ fn main() {
 
 #[allow(unused)]
 fn dwm_flush() {
-    let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
+    let window = create_window("Window", 0, 0, 600, 400, WindowStyle::DEFAULT);
     let mut frame_counter = 0;
     let mut last_time = Instant::now();
 
@@ -38,7 +38,7 @@ fn dwm_flush() {
 #[allow(unused)]
 fn wait_timer() {
     unsafe {
-        let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
+        let window = create_window("Window", 0, 0, 600, 400, WindowStyle::DEFAULT);
 
         assert!(timeBeginPeriod(1) == 0);
 

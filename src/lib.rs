@@ -194,6 +194,22 @@ impl Rect {
             height,
         }
     }
+    pub const fn x(mut self, x: usize) -> Self {
+        self.x = x;
+        self
+    }
+    pub const fn y(mut self, y: usize) -> Self {
+        self.y = y;
+        self
+    }
+    pub const fn width(mut self, width: usize) -> Self {
+        self.width = width;
+        self
+    }
+    pub const fn height(mut self, height: usize) -> Self {
+        self.height = height;
+        self
+    }
     pub const fn right(&self) -> usize {
         self.x + self.width
     }

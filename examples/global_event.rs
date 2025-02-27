@@ -1,7 +1,7 @@
 use window::*;
 
 fn main() {
-    let window = create_window("test", 800, 500, WindowStyle::DEFAULT);
+    let window = create_window("test", 0, 0,  800, 500, WindowStyle::DEFAULT);
 
     // Blocking message
 

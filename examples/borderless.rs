@@ -1,7 +1,7 @@
 use window::*;
 
 fn main() {
-    let mut window = create_window("Window", 50, 50, WindowStyle::BORDERLESS);
+    let mut window = create_window("Window", 0, 0, 50, 50, WindowStyle::BORDERLESS);
 
     loop {
         match window.event() {

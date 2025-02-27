@@ -32,7 +32,7 @@ pub fn lerp_hex(color1: u32, color2: u32, t: f32) -> u32 {
 }
 
 fn main() {
-    let window = create_window("Window", 600, 400, WindowStyle::DEFAULT);
+    let window = create_window("Window", 0, 0,  600, 400, WindowStyle::DEFAULT);
     let hwnd = window.hwnd.clone();
 
     //TODO: I want each window to have it's own framebuffer.
