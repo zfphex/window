@@ -1,28 +1,5 @@
 use crate::*;
 
-#[link(name = "user32")]
-extern "system" {
-    pub fn ToUnicode(
-        wVirtKey: u32,
-        wScanCode: u32,
-        lpKeyState: *const u8,
-        pwszBuff: *mut u16,
-        cchBuff: i32,
-        wFlags: u32,
-    ) -> i32;
-    pub fn ToUnicodeEx(
-        wVirtKey: u32,
-        wScanCode: u32,
-        lpKeyState: *const u8,
-        pwszBuff: *mut u16,
-        cchBuff: i32,
-        wFlags: u32,
-        dwhkl: *mut c_void,
-    ) -> i32;
-    pub fn GetKeyboardState(lpKeyState: *mut u8) -> i32;
-    pub fn GetKeyboardLayout(idThread: u32) -> *mut c_void;
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Modifier {
     None,
