@@ -92,15 +92,6 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
-#[track_caller]
-fn handle_mouse_button(button: usize, m4: Key, m5: Key) -> Key {
-    match button {
-        1 => m4,
-        2 => m5,
-        _ => unreachable!(),
-    }
-}
-
 pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
     let (mouse_x, mouse_y) = (msg.pt.x, msg.pt.y);
     let modifiers = modifiers();
@@ -129,22 +120,6 @@ pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
                 Key::ScrollDown
             }
         }
-        WM_LBUTTONDOWN => Key::LeftMouseDown,
-        WM_LBUTTONUP => Key::LeftMouseUp,
-        WM_LBUTTONDBLCLK => Key::LeftMouseDoubleClick,
-        WM_RBUTTONDOWN => Key::RightMouseDown,
-        WM_RBUTTONUP => Key::RightMouseUp,
-        WM_RBUTTONDBLCLK => Key::RightMouseDoubleClick,
-        WM_MBUTTONDOWN => Key::MiddleMouseDown,
-        WM_MBUTTONUP => Key::MiddleMouseUp,
-        WM_MBUTTONDBLCLK => Key::MiddleMouseDoubleClick,
-        WM_XBUTTONDOWN => handle_mouse_button(msg.w_param >> 16, Key::Mouse4Down, Key::Mouse5Down),
-        WM_XBUTTONUP => handle_mouse_button(msg.w_param >> 16, Key::Mouse4Up, Key::Mouse5Up),
-        WM_XBUTTONDBLCLK => handle_mouse_button(
-            msg.w_param >> 16,
-            Key::Mouse4DoubleClick,
-            Key::Mouse5DoubleClick,
-        ),
         //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
         WM_KEYDOWN => {
             let vk = msg.w_param as i32;

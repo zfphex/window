@@ -96,6 +96,11 @@ pub fn create_window(
             buffer: vec![0u32; area.width * area.height],
             bitmap: BITMAPINFO::new(area.width as i32, area.height as i32),
             quit: false,
+            left_mouse: MouseState::new(),
+            right_mouse: MouseState::new(),
+            middle_mouse: MouseState::new(),
+            mouse_4: MouseState::new(),
+            mouse_5: MouseState::new(),
         });
 
         let addr = &*window as *const Window;
@@ -116,6 +121,11 @@ pub struct Window {
     pub bitmap: BITMAPINFO,
     pub area: Rect,
     pub quit: bool,
+    pub left_mouse: MouseState,
+    pub right_mouse: MouseState,
+    pub middle_mouse: MouseState,
+    pub mouse_4: MouseState,
+    pub mouse_5: MouseState,
 }
 
 impl Window {
@@ -146,24 +156,20 @@ impl Window {
             )
         };
     }
-
     #[inline]
     pub fn client_area(&self) -> Rect {
         let mut rect = RECT::default();
         let _ = unsafe { GetClientRect(self.hwnd, &mut rect) };
         Rect::from_windows(rect)
     }
-
     #[inline(always)]
     pub const fn width(&self) -> usize {
         self.area.width
     }
-
     #[inline(always)]
     pub const fn height(&self) -> usize {
         self.area.height
     }
-
     pub fn borderless(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::BORDERLESS.style as isize);
@@ -180,7 +186,6 @@ impl Window {
             );
         };
     }
-
     pub fn set_pos(&mut self, x: usize, y: usize, width: usize, height: usize, flags: u32) {
         unsafe {
             SetWindowPos(
@@ -194,7 +199,6 @@ impl Window {
             );
         }
     }
-
     pub fn reset_style(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::DEFAULT.style as isize);
@@ -235,6 +239,13 @@ impl Window {
     }
     //TODO: There is no support for depth.
     pub fn draw(&mut self) {
+        // Not sure how to handle resets.
+        // self.left_mouse.reset();
+        // self.right_mouse.reset();
+        // self.middle_mouse.reset();
+        // self.mouse_4.reset();
+        // self.mouse_5.reset();
+
         unsafe {
             StretchDIBits(
                 self.dc,
@@ -312,6 +323,9 @@ pub unsafe extern "system" fn wnd_proc(
     //I'm not convinced this is the right way to do this.
     let window: &mut Window = &mut *ptr;
 
+    let low = (lparam & 0xffff) as usize;
+    let high = ((lparam >> 16) & 0xffff) as usize;
+
     match msg {
         //We can choose not to destroy the window, for example with a save prompt.
         WM_CLOSE => {
@@ -326,15 +340,12 @@ pub unsafe extern "system" fn wnd_proc(
         //TODO: Could add a feature flag to skip this for no GDI use.
         //Do it in the UI library for now?
         WM_SIZE => {
-            let width = LOWORD(lparam as u32) as i32;
-            let height = HIWORD(lparam as u32) as i32;
-
+            let (width, height) = (low, high);
             mini::info!("Resizing to width: {}, height: {}", width, height);
-
             window.buffer.clear();
-            window.buffer.resize(width as usize * height as usize, 0);
-            window.bitmap = BITMAPINFO::new(width, height);
-            window.area = Rect::new(0, 0, width as usize, height as usize);
+            window.buffer.resize(width * height, 0);
+            window.bitmap = BITMAPINFO::new(width as i32, height as i32);
+            window.area = Rect::new(0, 0, width, height);
 
             return 0;
         }
@@ -374,6 +385,48 @@ pub unsafe extern "system" fn wnd_proc(
             );
 
             window.display_scale = scale;
+            return 0;
+        }
+        WM_LBUTTONDOWN => {
+            window.left_mouse.pressed(Rect::new(low, high, 1, 1));
+            return 0;
+        }
+        WM_LBUTTONUP => {
+            window.left_mouse.released(Rect::new(low, high, 1, 1));
+            return 0;
+        }
+        WM_RBUTTONDOWN => {
+            window.right_mouse.pressed(Rect::new(low, high, 1, 1));
+            return 0;
+        }
+        WM_RBUTTONUP => {
+            window.right_mouse.released(Rect::new(low, high, 1, 1));
+            return 0;
+        }
+        WM_MBUTTONDOWN => {
+            window.middle_mouse.pressed(Rect::new(low, high, 1, 1));
+            return 0;
+        }
+        WM_MBUTTONUP => {
+            window.middle_mouse.released(Rect::new(low, high, 1, 1));
+            return 0;
+        }
+        WM_XBUTTONDOWN => {
+            let button = ((wparam >> 16) & 0xffff) as usize;
+            if button == 1 {
+                window.mouse_4.pressed(Rect::new(low, high, 1, 1));
+            } else if button == 2 {
+                window.mouse_5.pressed(Rect::new(low, high, 1, 1));
+            }
+            return 0;
+        }
+        WM_XBUTTONUP => {
+            let button = ((wparam >> 16) & 0xffff) as usize;
+            if button == 1 {
+                window.mouse_4.released(Rect::new(low, high, 1, 1));
+            } else if button == 2 {
+                window.mouse_5.released(Rect::new(low, high, 1, 1));
+            }
             return 0;
         }
         _ => return DefWindowProcA(hwnd, msg, wparam, lparam),

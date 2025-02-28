@@ -32,7 +32,7 @@ pub fn lerp_hex(color1: u32, color2: u32, t: f32) -> u32 {
 }
 
 fn main() {
-    let window = create_window("Window", 0, 0, 600, 400, WindowStyle::DEFAULT);
+    let mut window = create_window("Window", 0, 0, 600, 400, WindowStyle::DEFAULT);
     let hwnd = window.hwnd.clone();
 
     //TODO: I want each window to have it's own framebuffer.
@@ -91,6 +91,15 @@ fn main() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Input(key, _)) => println!("{:?}", key),
             _ => {}
+        }
+
+        if window.right_mouse.is_pressed()
+            || window.left_mouse.is_pressed()
+            || window.middle_mouse.is_pressed()
+            || window.mouse_5.is_pressed()
+            || window.mouse_4.is_pressed()
+        {
+
         }
     }
 }

@@ -20,7 +20,9 @@ mod gdi;
 mod global_input;
 mod monitor;
 mod window;
+mod input;
 
+pub use input::*;
 pub use clipboard::*;
 pub use constants::*;
 pub use dark_theme::*;
