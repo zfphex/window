@@ -1,38 +1,45 @@
-#![allow(non_snake_case, static_mut_refs, non_camel_case_types)]
-mod clipboard;
-mod constants;
-mod dark_mode;
-mod debug;
-mod event;
-mod fps;
-mod gdi;
-mod global_event;
-mod monitor;
-mod window;
-
-pub use clipboard::*;
-pub use constants::*;
-pub use dark_mode::*;
-pub use debug::*;
-pub use event::*;
-pub use fps::*;
-pub use gdi::*;
-pub use global_event::*;
-pub use monitor::*;
-pub use window::*;
+#![allow(
+    non_snake_case,
+    static_mut_refs,
+    non_camel_case_types,
+    unused_variables
+)]
 
 use core::{
     ffi::c_void,
     ptr::{null, null_mut},
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
 
+mod clipboard;
+mod constants;
+mod dark_theme;
+mod debug;
+mod event;
+mod fps;
+mod gdi;
+mod global_input;
+mod monitor;
+mod window;
+
+pub use clipboard::*;
+pub use constants::*;
+pub use dark_theme::*;
+pub use debug::*;
+pub use event::*;
+pub use fps::*;
+pub use gdi::*;
+pub use global_input::*;
+pub use monitor::*;
+pub use window::*;
+
+pub type BYTE = u8;
 pub type HDC = *mut c_void;
 pub type HANDLE = *mut c_void;
 pub type HWND = isize;
 pub type WPARAM = usize;
 pub type LPARAM = isize;
 pub type LRESULT = isize;
+pub type HRESULT = i32;
 pub type WORD = u16;
 pub type DWORD = u32;
 pub type BOOL = i32;
@@ -40,6 +47,7 @@ pub type UINT = u32;
 pub type LONG = i32;
 pub type LPCSTR = *const i8;
 pub type LPCWSTR = *const u16;
+pub type LPWSTR = *mut u16;
 
 #[link(name = "user32")]
 extern "system" {
@@ -69,6 +77,7 @@ extern "system" {
     pub fn PostQuitMessage(nExitCode: i32);
     pub fn RegisterClassA(lpwndclass: *const WNDCLASSA) -> u16;
     pub fn DispatchMessageA(lpMsg: *const MSG) -> isize;
+    ///Translates virtual-key messages into character messages.
     pub fn TranslateMessage(lpMsg: *const MSG) -> i32;
     pub fn GetLastError() -> u32;
     pub fn GetProcAddress(hModule: *mut c_void, lpProcName: *const i8) -> *mut c_void;
@@ -241,12 +250,6 @@ impl Rect {
     }
 }
 
-pub fn get_client_rect(hwnd: isize) -> Rect {
-    let mut rect = RECT::default();
-    let _ = unsafe { GetClientRect(hwnd, &mut rect) };
-    Rect::from_windows(rect)
-}
-
 ///Don't use this.
 #[repr(C)]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -332,145 +335,6 @@ pub struct WNDCLASSA {
     pub menu_name: *const u8,
     pub class_name: *const u8,
 }
-
-#[derive(Debug, PartialEq)]
-pub enum Modifier {
-    None,
-    LeftControl,
-    LeftShift,
-    LeftAlt,
-    RightControl,
-    RightShift,
-    RightAlt,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Event {
-    Quit,
-    //(0, 0) is top left of window.
-    MouseMoveInsideWindow(i32, i32),
-    //Global mouse move. Should not show up using `Window`.
-    MouseMoveGlobal(i32, i32),
-    Move,
-    Input(Key, Modifiers),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Key {
-    Char(char),
-    Function(u8),
-    Enter,
-    Backspace,
-    Escape,
-    Control,
-    Shift,
-    Alt,
-    Tab,
-
-    Up,
-    Down,
-    Left,
-    Right,
-
-    LeftMouseDown,
-    LeftMouseUp,
-    LeftMouseDoubleClick,
-
-    MiddleMouseDown,
-    MiddleMouseUp,
-    MiddleMouseDoubleClick,
-
-    RightMouseDown,
-    RightMouseUp,
-    RightMouseDoubleClick,
-
-    Mouse4Down,
-    Mouse4Up,
-    Mouse4DoubleClick,
-
-    Mouse5Down,
-    Mouse5Up,
-    Mouse5DoubleClick,
-
-    ScrollUp,
-    ScrollDown,
-
-    Unknown(u16),
-    LeftWindows,
-    RightWindows,
-    Menu,
-    ScrollLock,
-    PauseBreak,
-    Insert,
-    Home,
-    Delete,
-    End,
-    PageUp,
-    PageDown,
-    PrintScreen,
-}
-
-impl Key {
-    pub const fn into(self, modifiers: Modifiers) -> Option<Event> {
-        Some(Event::Input(self, modifiers))
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Modifiers {
-    pub control: bool,
-    pub shift: bool,
-    pub alt: bool,
-    pub win: bool,
-}
-
-//https://github.com/makepad/makepad/blob/69bef6bab686284e1e3ab83ee803f29c5c9f40e5/platform/src/os/windows/win32_window.rs#L765
-pub fn modifiers() -> Modifiers {
-    unsafe {
-        Modifiers {
-            control: GetKeyState(VK_CONTROL) & 0x80 > 0,
-            shift: GetKeyState(VK_SHIFT) & 0x80 > 0,
-            alt: GetKeyState(VK_MENU) & 0x80 > 0,
-            win: GetKeyState(VK_LWIN) & 0x80 > 0 || GetKeyState(VK_RWIN) & 0x80 > 0,
-        }
-    }
-}
-
-pub fn mouse_pos() -> (i32, i32) {
-    let mut point = POINT { x: 0, y: 0 };
-    let _ = unsafe { GetCursorPos(&mut point) };
-
-    (point.x, point.y)
-}
-
-pub fn physical_mouse_pos() -> (i32, i32) {
-    let mut point = POINT { x: 0, y: 0 };
-    let _ = unsafe { GetPhysicalCursorPos(&mut point) };
-
-    (point.x, point.y)
-}
-
-// ///WinRect coordiantes can be negative.
-// #[inline]
-// pub fn screen_area(hwnd: isize) -> RECT {
-//     let mut rect = RECT::default();
-//     let _ = unsafe { GetWindowRect(hwnd, &mut rect) };
-//     rect
-// }
-
-// ///WinRect coordiantes *should* never be negative.
-// #[inline]
-// pub fn client_area(hwnd: isize) -> Rect {
-//     let mut rect = RECT::default();
-//     let _ = unsafe { GetClientRect(hwnd, &mut rect) };
-//     Rect::from_windows(rect)
-// }
-
-// /// The desktop window is the area on top of which other windows are painted.
-// #[inline]
-// pub fn desktop_area() -> RECT {
-//     unsafe { client_area(GetDesktopWindow()) }
-// }
 
 #[inline]
 pub fn LOWORD(l: u32) -> u16 {

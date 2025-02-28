@@ -86,9 +86,7 @@ extern "system" {
 }
 
 #[link(name = "Gdi32")]
-
 extern "system" {
-
     pub fn StretchDIBits(
         hdc: *mut c_void,
         XDest: i32,

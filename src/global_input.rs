@@ -198,3 +198,17 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
 pub fn is_down(virtual_key: i32) -> bool {
     (unsafe { GetAsyncKeyState(virtual_key) } & 0x8000u16 as i16) != 0
 }
+
+pub fn get_mouse_position() -> (i32, i32) {
+    let mut point = POINT { x: 0, y: 0 };
+    let _ = unsafe { GetCursorPos(&mut point) };
+
+    (point.x, point.y)
+}
+
+pub fn get_physical_mouse_position() -> (i32, i32) {
+    let mut point = POINT { x: 0, y: 0 };
+    let _ = unsafe { GetPhysicalCursorPos(&mut point) };
+
+    (point.x, point.y)
+}

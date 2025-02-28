@@ -1,5 +1,23 @@
 use crate::*;
 
+#[inline]
+pub fn get_window_rect(hwnd: isize) -> RECT {
+    let mut rect = RECT::default();
+    let _ = unsafe { GetWindowRect(hwnd, &mut rect) };
+    rect
+}
+
+pub fn get_client_rect(hwnd: isize) -> Rect {
+    let mut rect = RECT::default();
+    let _ = unsafe { GetClientRect(hwnd, &mut rect) };
+    Rect::from_windows(rect)
+}
+
+#[inline]
+pub fn desktop_area() -> Rect {
+    unsafe { get_client_rect(GetDesktopWindow()) }
+}
+
 pub const MONITOR_DEFAULTTONULL: u32 = 0x00000000;
 pub const MONITOR_DEFAULTTOPRIMARY: u32 = 0x00000001;
 pub const MONITOR_DEFAULTTONEAREST: u32 = 0x00000002;
@@ -17,9 +35,9 @@ impl Default for MONITORINFO {
     fn default() -> Self {
         Self {
             cbSize: size_of::<Self>() as u32,
-            rcMonitor: Default::default(),
-            rcWork: Default::default(),
-            dwFlags: Default::default(),
+            rcMonitor: RECT::default(),
+            rcWork: RECT::default(),
+            dwFlags: 0,
         }
     }
 }

@@ -1,8 +1,6 @@
 use crate::*;
 pub const DEFAULT_DPI: f32 = 96.0;
 
-pub static mut WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
-
 pub fn create_window(
     title: &str,
     x: i32,
@@ -88,8 +86,6 @@ pub fn create_window(
         assert_ne!(hwnd, 0);
         let dc = GetDC(hwnd);
 
-        WINDOW_COUNT.fetch_add(1, Ordering::SeqCst);
-
         //Safety: This *should* be pinned.
         let window = Box::pin(Window {
             //Re-grab the area after calling SetWindowPos.
@@ -97,10 +93,9 @@ pub fn create_window(
             hwnd,
             dc,
             display_scale: scale,
-            screen_mouse_pos: (0, 0),
-            queue: crossbeam_queue::SegQueue::new(),
             buffer: vec![0u32; area.width * area.height],
             bitmap: BITMAPINFO::new(area.width as i32, area.height as i32),
+            quit: false,
         });
 
         let addr = &*window as *const Window;
@@ -114,19 +109,13 @@ pub fn create_window(
 #[derive(Debug)]
 pub struct Window {
     pub hwnd: isize,
-    pub screen_mouse_pos: (i32, i32),
     pub display_scale: f32,
     //GDI related
     pub dc: *mut c_void,
     pub buffer: Vec<u32>,
     pub bitmap: BITMAPINFO,
     pub area: Rect,
-
-    //TODO: Remove, this is super overkill.
-    //The only events going through this now are Quit and Dpi.
-    //I think an array or vec with small capacity would be fine.
-    //I do like that it has interior mutability since it's atomic.
-    pub queue: crossbeam_queue::SegQueue<Event>,
+    pub quit: bool,
 }
 
 impl Window {
@@ -223,12 +212,26 @@ impl Window {
         };
     }
     pub fn event(&self) -> Option<Event> {
-        //Window procedure events take presidence here.
-        if let Some(event) = self.queue.pop() {
-            return Some(event);
-        };
+        if self.quit {
+            return Some(Event::Quit);
+        }
 
-        unsafe { event(Some(self.hwnd)) }
+        unsafe {
+            let mut msg = MSG::new();
+            let result = PeekMessageA(&mut msg, self.hwnd, 0, 0, PM_REMOVE);
+            translate_message(msg, result)
+        }
+    }
+    pub fn block_event(&self) -> Option<Event> {
+        if self.quit {
+            return Some(Event::Quit);
+        }
+
+        unsafe {
+            let mut msg = MSG::new();
+            let result = GetMessageA(&mut msg, self.hwnd, 0, 0);
+            translate_message(msg, result)
+        }
     }
     //TODO: There is no support for depth.
     pub fn draw(&mut self) {
@@ -251,12 +254,6 @@ impl Window {
         }
     }
 }
-
-// pub const TOP: u32 = WS_EX_TOPMOST;
-
-// pub fn style() -> WindowStyle {
-//     WindowStyle::DEFAULT
-// }
 
 pub struct WindowStyle {
     pub style: u32,
@@ -303,7 +300,7 @@ pub unsafe extern "system" fn wnd_proc(
     lparam: isize,
 ) -> isize {
     if msg == WM_CREATE {
-        set_dark_mode(hwnd).unwrap();
+        set_dark_theme(hwnd);
         return 0;
     }
 
@@ -316,11 +313,14 @@ pub unsafe extern "system" fn wnd_proc(
     let window: &mut Window = &mut *ptr;
 
     match msg {
-        WM_DESTROY | WM_CLOSE => {
-            //Not technically needed.
-            PostQuitMessage(0);
+        //We can choose not to destroy the window, for example with a save prompt.
+        WM_CLOSE => {
             assert!(DestroyWindow(hwnd) != 0);
-            window.queue.push(Event::Quit);
+            return 0;
+        }
+        WM_DESTROY => {
+            PostQuitMessage(0);
+            window.quit = true;
             return 0;
         }
         //TODO: Could add a feature flag to skip this for no GDI use.
