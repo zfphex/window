@@ -16,8 +16,6 @@ pub enum Event {
     Quit,
     //(0, 0) is top left of window.
     MouseMoveInsideWindow(i32, i32),
-    //Global mouse move. Should not show up using `Window`.
-    MouseMoveGlobal(i32, i32),
     Move,
     Input(Key, Modifiers),
 }
@@ -95,7 +93,8 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
-pub(crate) fn handle_mouse_button(button: usize, m4: Key, m5: Key) -> Key {
+#[track_caller]
+fn handle_mouse_button(button: usize, m4: Key, m5: Key) -> Key {
     match button {
         1 => m4,
         2 => m5,

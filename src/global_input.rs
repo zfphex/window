@@ -35,25 +35,23 @@ extern "system" {
 pub static mut HOOK: *mut c_void = core::ptr::null_mut();
 pub static mut ONCE: Once = Once::new();
 
-pub const USER_MOUSEMOVE: u32 = WM_USER + 1;
-pub const USER_MOUSEWHEEL: u32 = WM_USER + 2;
-pub const USER_LBUTTONDOWN: u32 = WM_USER + 3;
-pub const USER_LBUTTONUP: u32 = WM_USER + 4;
-pub const USER_LBUTTONDBLCLK: u32 = WM_USER + 5;
-pub const USER_RBUTTONDOWN: u32 = WM_USER + 6;
-pub const USER_RBUTTONUP: u32 = WM_USER + 7;
-pub const USER_RBUTTONDBLCLK: u32 = WM_USER + 8;
-pub const USER_MBUTTONDOWN: u32 = WM_USER + 9;
-pub const USER_MBUTTONUP: u32 = WM_USER + 10;
-pub const USER_MBUTTONDBLCLK: u32 = WM_USER + 11;
-pub const USER_XBUTTONDOWN: u32 = WM_USER + 12;
-pub const USER_XBUTTONUP: u32 = WM_USER + 13;
-pub const USER_XBUTTONDBLCLK: u32 = WM_USER + 14;
+pub const USER_MOUSEWHEEL: u32 = WM_USER + 1;
+pub const USER_LBUTTONDOWN: u32 = WM_USER + 2;
+pub const USER_LBUTTONUP: u32 = WM_USER + 3;
+pub const USER_LBUTTONDBLCLK: u32 = WM_USER + 4;
+pub const USER_RBUTTONDOWN: u32 = WM_USER + 5;
+pub const USER_RBUTTONUP: u32 = WM_USER + 6;
+pub const USER_RBUTTONDBLCLK: u32 = WM_USER + 7;
+pub const USER_MBUTTONDOWN: u32 = WM_USER + 8;
+pub const USER_MBUTTONUP: u32 = WM_USER + 9;
+pub const USER_MBUTTONDBLCLK: u32 = WM_USER + 10;
+pub const USER_XBUTTONDOWN: u32 = WM_USER + 11;
+pub const USER_XBUTTONUP: u32 = WM_USER + 12;
+pub const USER_XBUTTONDBLCLK: u32 = WM_USER + 13;
 
 pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
     if code >= 0 {
         let msg = match w_param as u32 {
-            WM_MOUSEMOVE => USER_MOUSEMOVE,
             WM_MOUSEWHEEL => {
                 let thread_id = GetCurrentThreadId();
                 //For some reaons the mouse data is not working when I send it over.
@@ -146,10 +144,6 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
     let mouse = unsafe { &*(msg.l_param as *const MSLLHOOKSTRUCT) };
     let modifiers = modifiers();
 
-    if msg.message == USER_MOUSEMOVE {
-        return Some(Event::MouseMoveGlobal(mouse.pt.x as i32, mouse.pt.y as i32));
-    }
-
     let key = match msg.message {
         USER_MOUSEWHEEL => {
             const WHEEL_DELTA: i16 = 120;
@@ -169,21 +163,21 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
         USER_MBUTTONDOWN => Key::MiddleMouseDown,
         USER_MBUTTONUP => Key::MiddleMouseUp,
         USER_MBUTTONDBLCLK => Key::MiddleMouseDoubleClick,
-        USER_XBUTTONDOWN => handle_mouse_button(
-            HIWORD(mouse.mouseData) as usize,
-            Key::Mouse4Down,
-            Key::Mouse5Down,
-        ),
-        USER_XBUTTONUP => handle_mouse_button(
-            HIWORD(mouse.mouseData) as usize,
-            Key::Mouse4Up,
-            Key::Mouse5Up,
-        ),
-        USER_XBUTTONDBLCLK => handle_mouse_button(
-            HIWORD(mouse.mouseData) as usize,
-            Key::Mouse4DoubleClick,
-            Key::Mouse5DoubleClick,
-        ),
+        USER_XBUTTONDOWN => match HIWORD(mouse.mouseData) {
+            1 => Key::Mouse4Down,
+            2 => Key::Mouse5Down,
+            _ => return None,
+        },
+        USER_XBUTTONUP => match HIWORD(mouse.mouseData) {
+            1 => Key::Mouse4Up,
+            2 => Key::Mouse5Up,
+            _ => return None,
+        },
+        USER_XBUTTONDBLCLK => match HIWORD(mouse.mouseData) {
+            1 => Key::Mouse4DoubleClick,
+            2 => Key::Mouse5DoubleClick,
+            _ => return None,
+        },
         _ => return None,
     };
 

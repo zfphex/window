@@ -1,7 +1,7 @@
 use window::*;
 
 fn main() {
-    let window = create_window("test", 0, 0,  800, 500, WindowStyle::DEFAULT);
+    let window = create_window("test", 0, 0, 800, 500, WindowStyle::DEFAULT);
 
     // Blocking message
 
@@ -14,7 +14,12 @@ fn main() {
     //Polling message
 
     loop {
-        let _ = window.event();
+        let event = window.event();
+        if event == Some(Event::Quit) {
+            return;
+        }
+
+        //This has major issues.
         if let Some(event) = poll_global_events() {
             println!("{:#?}", event);
         }
