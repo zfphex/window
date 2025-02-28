@@ -95,7 +95,7 @@ pub fn modifiers() -> Modifiers {
     }
 }
 
-fn handle_mouse_button(button: usize, m4: Key, m5: Key) -> Key {
+pub(crate) fn handle_mouse_button(button: usize, m4: Key, m5: Key) -> Key {
     match button {
         1 => m4,
         2 => m5,

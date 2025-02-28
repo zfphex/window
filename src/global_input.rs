@@ -146,52 +146,48 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
     let mouse = unsafe { &*(msg.l_param as *const MSLLHOOKSTRUCT) };
     let modifiers = modifiers();
 
-    match msg.message {
-        USER_MOUSEMOVE => Some(Event::MouseMoveGlobal(mouse.pt.x as i32, mouse.pt.y as i32)),
+    if msg.message == USER_MOUSEMOVE {
+        return Some(Event::MouseMoveGlobal(mouse.pt.x as i32, mouse.pt.y as i32));
+    }
+
+    let key = match msg.message {
         USER_MOUSEWHEEL => {
             const WHEEL_DELTA: i16 = 120;
             let delta = (msg.w_param as i16) as f32 / WHEEL_DELTA as f32;
             if delta >= 0.0 {
-                Some(Event::Input(Key::ScrollUp, modifiers))
+                Key::ScrollUp
             } else {
-                Some(Event::Input(Key::ScrollDown, modifiers))
+                Key::ScrollDown
             }
         }
-        USER_LBUTTONDOWN => Some(Event::Input(Key::LeftMouseDown, modifiers)),
-        USER_LBUTTONUP => Some(Event::Input(Key::LeftMouseUp, modifiers)),
-        USER_LBUTTONDBLCLK => Some(Event::Input(Key::LeftMouseDoubleClick, modifiers)),
-        USER_RBUTTONDOWN => Some(Event::Input(Key::RightMouseDown, modifiers)),
-        USER_RBUTTONUP => Some(Event::Input(Key::RightMouseUp, modifiers)),
-        USER_RBUTTONDBLCLK => Some(Event::Input(Key::RightMouseDoubleClick, modifiers)),
-        USER_MBUTTONDOWN => Some(Event::Input(Key::MiddleMouseDown, modifiers)),
-        USER_MBUTTONUP => Some(Event::Input(Key::MiddleMouseUp, modifiers)),
-        USER_MBUTTONDBLCLK => Some(Event::Input(Key::MiddleMouseDoubleClick, modifiers)),
-        USER_XBUTTONDOWN => {
-            let btn = HIWORD(mouse.mouseData);
-            match btn {
-                1 => Some(Event::Input(Key::Mouse4Down, modifiers)),
-                2 => Some(Event::Input(Key::Mouse5Down, modifiers)),
-                _ => None,
-            }
-        }
-        USER_XBUTTONUP => {
-            let btn = HIWORD(mouse.mouseData);
-            match btn {
-                1 => Some(Event::Input(Key::Mouse4Up, modifiers)),
-                2 => Some(Event::Input(Key::Mouse5Up, modifiers)),
-                _ => None,
-            }
-        }
-        USER_XBUTTONDBLCLK => {
-            let btn = HIWORD(mouse.mouseData);
-            match btn {
-                1 => Some(Event::Input(Key::Mouse4DoubleClick, modifiers)),
-                2 => Some(Event::Input(Key::Mouse5DoubleClick, modifiers)),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
+        USER_LBUTTONDOWN => Key::LeftMouseDown,
+        USER_LBUTTONUP => Key::LeftMouseUp,
+        USER_LBUTTONDBLCLK => Key::LeftMouseDoubleClick,
+        USER_RBUTTONDOWN => Key::RightMouseDown,
+        USER_RBUTTONUP => Key::RightMouseUp,
+        USER_RBUTTONDBLCLK => Key::RightMouseDoubleClick,
+        USER_MBUTTONDOWN => Key::MiddleMouseDown,
+        USER_MBUTTONUP => Key::MiddleMouseUp,
+        USER_MBUTTONDBLCLK => Key::MiddleMouseDoubleClick,
+        USER_XBUTTONDOWN => handle_mouse_button(
+            HIWORD(mouse.mouseData) as usize,
+            Key::Mouse4Down,
+            Key::Mouse5Down,
+        ),
+        USER_XBUTTONUP => handle_mouse_button(
+            HIWORD(mouse.mouseData) as usize,
+            Key::Mouse4Up,
+            Key::Mouse5Up,
+        ),
+        USER_XBUTTONDBLCLK => handle_mouse_button(
+            HIWORD(mouse.mouseData) as usize,
+            Key::Mouse4DoubleClick,
+            Key::Mouse5DoubleClick,
+        ),
+        _ => return None,
+    };
+
+    Some(Event::Input(key, modifiers))
 }
 
 ///https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
