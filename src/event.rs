@@ -14,9 +14,8 @@ pub enum Modifier {
 #[derive(Debug, PartialEq)]
 pub enum Event {
     Quit,
-    //(0, 0) is top left of window.
-    MouseMoveInsideWindow(i32, i32),
-    Move,
+    ///Mouse movement inside the window. (0, 0) is top left of window.
+    MouseMove(i32, i32),
     Input(Key, Modifiers),
 }
 
@@ -116,7 +115,7 @@ pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
     if msg.message == WM_MOUSEMOVE {
         let x = msg.l_param & 0xFFFF;
         let y = msg.l_param >> 16 & 0xFFFF;
-        return Some(Event::MouseMoveInsideWindow(x as i32, y as i32));
+        return Some(Event::MouseMove(x as i32, y as i32));
     }
 
     let key = match msg.message {
