@@ -154,30 +154,33 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
                 Key::ScrollDown
             }
         }
-        USER_LBUTTONDOWN => Key::LeftMouseDown,
-        USER_LBUTTONUP => Key::LeftMouseUp,
-        USER_LBUTTONDBLCLK => Key::LeftMouseDoubleClick,
-        USER_RBUTTONDOWN => Key::RightMouseDown,
-        USER_RBUTTONUP => Key::RightMouseUp,
-        USER_RBUTTONDBLCLK => Key::RightMouseDoubleClick,
-        USER_MBUTTONDOWN => Key::MiddleMouseDown,
-        USER_MBUTTONUP => Key::MiddleMouseUp,
-        USER_MBUTTONDBLCLK => Key::MiddleMouseDoubleClick,
-        USER_XBUTTONDOWN => match HIWORD(mouse.mouseData) {
-            1 => Key::Mouse4Down,
-            2 => Key::Mouse5Down,
-            _ => return None,
-        },
-        USER_XBUTTONUP => match HIWORD(mouse.mouseData) {
-            1 => Key::Mouse4Up,
-            2 => Key::Mouse5Up,
-            _ => return None,
-        },
-        USER_XBUTTONDBLCLK => match HIWORD(mouse.mouseData) {
-            1 => Key::Mouse4DoubleClick,
-            2 => Key::Mouse5DoubleClick,
-            _ => return None,
-        },
+        //TODO: Reimplement global mouse state in a better way.
+        //It should be independant of the standard event system.
+        //There should really be a GlobalState struct or GlobalEvent.
+        // USER_LBUTTONDOWN => Key::LeftMouseDown,
+        // USER_LBUTTONUP => Key::LeftMouseUp,
+        // USER_LBUTTONDBLCLK => Key::LeftMouseDoubleClick,
+        // USER_RBUTTONDOWN => Key::RightMouseDown,
+        // USER_RBUTTONUP => Key::RightMouseUp,
+        // USER_RBUTTONDBLCLK => Key::RightMouseDoubleClick,
+        // USER_MBUTTONDOWN => Key::MiddleMouseDown,
+        // USER_MBUTTONUP => Key::MiddleMouseUp,
+        // USER_MBUTTONDBLCLK => Key::MiddleMouseDoubleClick,
+        // USER_XBUTTONDOWN => match HIWORD(mouse.mouseData) {
+        //     1 => Key::Mouse4Down,
+        //     2 => Key::Mouse5Down,
+        //     _ => return None,
+        // },
+        // USER_XBUTTONUP => match HIWORD(mouse.mouseData) {
+        //     1 => Key::Mouse4Up,
+        //     2 => Key::Mouse5Up,
+        //     _ => return None,
+        // },
+        // USER_XBUTTONDBLCLK => match HIWORD(mouse.mouseData) {
+        //     1 => Key::Mouse4DoubleClick,
+        //     2 => Key::Mouse5DoubleClick,
+        //     _ => return None,
+        // },
         _ => return None,
     };
 

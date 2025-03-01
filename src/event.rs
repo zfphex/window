@@ -35,21 +35,6 @@ pub enum Key {
     Down,
     Left,
     Right,
-    LeftMouseDown,
-    LeftMouseUp,
-    LeftMouseDoubleClick,
-    MiddleMouseDown,
-    MiddleMouseUp,
-    MiddleMouseDoubleClick,
-    RightMouseDown,
-    RightMouseUp,
-    RightMouseDoubleClick,
-    Mouse4Down,
-    Mouse4Up,
-    Mouse4DoubleClick,
-    Mouse5Down,
-    Mouse5Up,
-    Mouse5DoubleClick,
     ScrollUp,
     ScrollDown,
     LeftWindows,
@@ -101,12 +86,6 @@ pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
     } else if message_result == -1 {
         let last_error = unsafe { GetLastError() };
         panic!("Error with `GetMessageA`, error code: {}", last_error);
-    }
-
-    if msg.message == WM_MOUSEMOVE {
-        let x = msg.l_param & 0xFFFF;
-        let y = msg.l_param >> 16 & 0xFFFF;
-        return Some(Event::MouseMove(x as i32, y as i32));
     }
 
     let key = match msg.message {

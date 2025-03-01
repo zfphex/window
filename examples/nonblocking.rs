@@ -93,13 +93,8 @@ fn main() {
             _ => {}
         }
 
-        if window.right_mouse.is_pressed()
-            || window.left_mouse.is_pressed()
-            || window.middle_mouse.is_pressed()
-            || window.mouse_5.is_pressed()
-            || window.mouse_4.is_pressed()
-        {
-
+        if window.left_mouse.clicked(Rect::new(0, 0, 100, 100)) {
+            dbg!(window.mouse_position);
         }
     }
 }

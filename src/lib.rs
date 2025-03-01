@@ -18,11 +18,10 @@ mod event;
 mod fps;
 mod gdi;
 mod global_input;
+mod input;
 mod monitor;
 mod window;
-mod input;
 
-pub use input::*;
 pub use clipboard::*;
 pub use constants::*;
 pub use dark_theme::*;
@@ -31,6 +30,7 @@ pub use event::*;
 pub use fps::*;
 pub use gdi::*;
 pub use global_input::*;
+pub use input::*;
 pub use monitor::*;
 pub use window::*;
 
@@ -189,14 +189,14 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub const fn default() -> Self {
-        Self {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-        }
-    }
+    // pub const fn default() -> Self {
+    //     Self {
+    //         x: 0,
+    //         y: 0,
+    //         width: 0,
+    //         height: 0,
+    //     }
+    // }
     pub const fn new(x: usize, y: usize, width: usize, height: usize) -> Self {
         Self {
             x,
@@ -274,26 +274,6 @@ pub struct MSG {
 }
 
 impl MSG {
-    #[inline]
-    pub fn low_order_l(&self) -> isize {
-        self.l_param >> 16 & 0xFFFF
-    }
-
-    #[inline]
-    pub fn high_order_l(&self) -> isize {
-        self.l_param & 0xFFFF
-    }
-
-    #[inline]
-    pub fn low_order_w(&self) -> usize {
-        self.w_param >> 16 & 0xFFFF
-    }
-
-    #[inline]
-    pub fn high_order_w(&self) -> usize {
-        self.w_param & 0xFFFF
-    }
-
     pub const fn new() -> Self {
         Self {
             hwnd: 0,
@@ -338,12 +318,31 @@ pub struct WNDCLASSA {
     pub class_name: *const u8,
 }
 
-#[inline]
-pub fn LOWORD(l: u32) -> u16 {
-    (l & 0xffff) as u16
+pub trait LowHighOrder {
+    fn low(self) -> Self;
+    fn high(self) -> Self;
 }
 
-#[inline]
-pub fn HIWORD(l: u32) -> u16 {
-    ((l >> 16) & 0xffff) as u16
+impl LowHighOrder for usize {
+    #[inline]
+    fn low(self) -> Self {
+        self & 0xffff
+    }
+
+    #[inline]
+    fn high(self) -> Self {
+        (self >> 16) & 0xffff
+    }
+}
+
+impl LowHighOrder for u32 {
+    #[inline]
+    fn low(self) -> Self {
+        self & 0xffff
+    }
+
+    #[inline]
+    fn high(self) -> Self {
+        (self >> 16) & 0xffff
+    }
 }

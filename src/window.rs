@@ -96,6 +96,7 @@ pub fn create_window(
             buffer: vec![0u32; area.width * area.height],
             bitmap: BITMAPINFO::new(area.width as i32, area.height as i32),
             quit: false,
+            mouse_position: Rect::default(),
             left_mouse: MouseState::new(),
             right_mouse: MouseState::new(),
             middle_mouse: MouseState::new(),
@@ -121,6 +122,7 @@ pub struct Window {
     pub bitmap: BITMAPINFO,
     pub area: Rect,
     pub quit: bool,
+    pub mouse_position: Rect,
     pub left_mouse: MouseState,
     pub right_mouse: MouseState,
     pub middle_mouse: MouseState,
@@ -287,12 +289,12 @@ impl WindowStyle {
         exstyle: 0,
     };
 
-    pub fn ex_style(mut self, flags: u32) -> Self {
+    pub const fn ex_style(mut self, flags: u32) -> Self {
         self.exstyle |= flags;
         self
     }
 
-    pub fn style(mut self, flags: u32) -> Self {
+    pub const fn style(mut self, flags: u32) -> Self {
         self.style |= flags;
         self
     }
@@ -385,6 +387,10 @@ pub unsafe extern "system" fn wnd_proc(
             );
 
             window.display_scale = scale;
+            return 0;
+        }
+        WM_MOUSEMOVE => {
+            window.mouse_position = Rect::new(low, high, 1, 1);
             return 0;
         }
         WM_LBUTTONDOWN => {

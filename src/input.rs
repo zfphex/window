@@ -22,13 +22,13 @@ impl MouseState {
         Self {
             pressed: false,
             released: false,
-            inital_position: Rect::default(),
+            inital_position: Rect::new(0, 0, 0, 0),
             release_position: None,
         }
     }
     pub const fn is_pressed(&mut self) -> bool {
         if self.pressed {
-            self.reset();
+            self.pressed = false;
             true
         } else {
             false
@@ -36,7 +36,7 @@ impl MouseState {
     }
     pub const fn is_released(&mut self) -> bool {
         if self.released {
-            self.reset();
+            self.released = false;
             true
         } else {
             false
@@ -45,16 +45,17 @@ impl MouseState {
     //TODO: I was resetting the input each frame before, not sure on the behaviour now.
     pub const fn clicked(&mut self, area: Rect) -> bool {
         if self.released && self.inital_position.intersects(area) {
-            self.reset();
+            self.pressed = false;
+            self.released = false;
             true
         } else {
             false
         }
     }
-    pub(crate) const fn reset(&mut self) {
-        self.pressed = false;
-        self.released = false;
-    }
+    // pub(crate) const fn reset(&mut self) {
+    //     self.pressed = false;
+    //     self.released = false;
+    // }
     pub(crate) const fn pressed(&mut self, pos: Rect) {
         self.pressed = true;
         self.released = false;
