@@ -10,7 +10,8 @@ warn = ["mini/warn"]
 error = ["mini/error"]
 
 [dependencies]
-crossbeam-queue = "0.3.11"
+# This is compiled out when the flags are not enabled.
 mini = { git = "https://github.com/zx3no/mini", version = "0.1.0" }
+
 # winapi = { version = "0.3.9", features = ["ntdef", "synchapi"] }
 # windows = { version = "0.59.0", features = ["Win32_System_Threading"] }
