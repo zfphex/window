@@ -228,7 +228,7 @@ impl Window {
             translate_message(msg, result)
         }
     }
-    pub fn block_event(&self) -> Option<Event> {
+    pub fn event_blocking(&self) -> Option<Event> {
         if self.quit {
             return Some(Event::Quit);
         }
@@ -238,6 +238,9 @@ impl Window {
             let result = GetMessageA(&mut msg, self.hwnd, 0, 0);
             translate_message(msg, result)
         }
+    }
+    pub fn vsync(&self) {
+        unsafe { DwmFlush() };
     }
     //TODO: There is no support for depth.
     pub fn draw(&mut self) {

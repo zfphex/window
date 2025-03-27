@@ -11,6 +11,7 @@ error = ["mini/error"]
 
 [dependencies]
 # This is compiled out when the flags are not enabled.
+# TODO: Look into making this optional
 mini = { git = "https://github.com/zx3no/mini", version = "0.1.0" }
 
 # winapi = { version = "0.3.9", features = ["ntdef", "synchapi"] }
