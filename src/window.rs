@@ -158,6 +158,9 @@ impl Window {
             )
         };
     }
+    pub const fn display_scale(&self) -> f32 {
+        self.display_scale
+    }
     #[inline]
     pub fn client_area(&self) -> Rect {
         let mut rect = RECT::default();
