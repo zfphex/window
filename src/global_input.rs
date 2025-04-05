@@ -206,6 +206,7 @@ impl GlobalMouseState {
 
 pub static mut GLOBAL_MOUSE_STATE: GlobalMouseState = GlobalMouseState::new();
 
+#[allow(static_mut_refs)]
 pub const fn global_state() -> &'static mut GlobalMouseState {
     unsafe { &mut GLOBAL_MOUSE_STATE }
 }
