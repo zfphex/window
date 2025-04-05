@@ -9,15 +9,15 @@ pub enum MouseButton {
     Mouse5,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct MouseState {
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct MouseButtonState {
     pub pressed: bool,
     pub released: bool,
     pub inital_position: Rect,
     pub release_position: Option<Rect>,
 }
 
-impl MouseState {
+impl MouseButtonState {
     pub const fn new() -> Self {
         Self {
             pressed: false,

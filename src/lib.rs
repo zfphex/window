@@ -252,9 +252,8 @@ impl Rect {
     }
 }
 
-///Don't use this.
 #[repr(C)]
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct RECT {
     left: i32,
     top: i32,

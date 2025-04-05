@@ -97,11 +97,11 @@ pub fn create_window(
             bitmap: BITMAPINFO::new(area.width as i32, area.height as i32),
             quit: false,
             mouse_position: Rect::default(),
-            left_mouse: MouseState::new(),
-            right_mouse: MouseState::new(),
-            middle_mouse: MouseState::new(),
-            mouse_4: MouseState::new(),
-            mouse_5: MouseState::new(),
+            left_mouse: MouseButtonState::new(),
+            right_mouse: MouseButtonState::new(),
+            middle_mouse: MouseButtonState::new(),
+            mouse_4: MouseButtonState::new(),
+            mouse_5: MouseButtonState::new(),
         });
 
         let addr = &*window as *const Window;
@@ -123,11 +123,11 @@ pub struct Window {
     pub area: Rect,
     pub quit: bool,
     pub mouse_position: Rect,
-    pub left_mouse: MouseState,
-    pub right_mouse: MouseState,
-    pub middle_mouse: MouseState,
-    pub mouse_4: MouseState,
-    pub mouse_5: MouseState,
+    pub left_mouse: MouseButtonState,
+    pub right_mouse: MouseButtonState,
+    pub middle_mouse: MouseButtonState,
+    pub mouse_4: MouseButtonState,
+    pub mouse_5: MouseButtonState,
 }
 
 impl Window {
