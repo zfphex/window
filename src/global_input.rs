@@ -1,5 +1,8 @@
 use crate::*;
-use std::sync::Once;
+use std::sync::{
+    atomic::{AtomicBool, AtomicI32, Ordering::*},
+    Once,
+};
 
 pub const WH_MOUSE_LL: i32 = 14;
 
@@ -126,92 +129,85 @@ pub fn wait_for_global_events() -> Option<Event> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub struct GlobalMouseButtonState {
-    pub pressed: bool,
-    pub released: bool,
-    pub inital_position: RECT,
-    pub release_position: Option<RECT>,
+#[derive(Debug, Default)]
+pub struct AtomicPos {
+    pub x: AtomicI32,
+    pub y: AtomicI32,
 }
 
-impl GlobalMouseButtonState {
+impl AtomicPos {
     pub const fn new() -> Self {
         Self {
-            pressed: false,
-            released: false,
-            inital_position: RECT {
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-            },
+            x: AtomicI32::new(0),
+            y: AtomicI32::new(0),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct AtomicGlobalMouseButtonState {
+    pub pressed: AtomicBool,
+    pub released: AtomicBool,
+    pub inital_position: AtomicPos,
+    pub release_position: Option<AtomicPos>,
+}
+
+impl AtomicGlobalMouseButtonState {
+    pub const fn new() -> Self {
+        Self {
+            pressed: AtomicBool::new(false),
+            released: AtomicBool::new(false),
+            inital_position: AtomicPos::new(),
             release_position: None,
         }
     }
-    pub const fn is_pressed(&mut self) -> bool {
-        if self.pressed {
-            self.pressed = false;
+    pub fn clicked(&mut self) -> bool {
+        if self.released.load(Relaxed) {
+            self.pressed.store(false, Relaxed);
+            self.released.store(false, Relaxed);
             true
         } else {
             false
         }
     }
-    pub const fn is_released(&mut self) -> bool {
-        if self.released {
-            self.released = false;
-            true
-        } else {
-            false
-        }
-    }
-    //TODO: This function doesn't use area anymore.
-    pub const fn clicked(&mut self) -> bool {
-        if self.released {
-            self.pressed = false;
-            self.released = false;
-            true
-        } else {
-            false
-        }
-    }
-    pub const fn pressed(&mut self, pos: RECT) {
-        self.pressed = true;
-        self.released = false;
+    pub fn pressed(&mut self, pos: AtomicPos) {
+        self.pressed.store(true, Relaxed);
+        self.released.store(false, Relaxed);
         self.inital_position = pos;
         self.release_position = None;
     }
-    pub const fn released(&mut self, pos: RECT) {
-        self.pressed = false;
-        self.released = true;
+    pub fn released(&mut self, pos: AtomicPos) {
+        self.pressed.store(false, Relaxed);
+        self.released.store(true, Relaxed);
         self.release_position = Some(pos);
     }
 }
 
 #[derive(Default)]
-pub struct GlobalMouseState {
-    pub left_mouse: GlobalMouseButtonState,
-    pub right_mouse: GlobalMouseButtonState,
-    pub middle_mouse: GlobalMouseButtonState,
-    pub mouse_4: GlobalMouseButtonState,
-    pub mouse_5: GlobalMouseButtonState,
+pub struct AtomicGlobalMouseState {
+    pub left_mouse: AtomicGlobalMouseButtonState,
+    pub right_mouse: AtomicGlobalMouseButtonState,
+    pub middle_mouse: AtomicGlobalMouseButtonState,
+    pub mouse_4: AtomicGlobalMouseButtonState,
+    pub mouse_5: AtomicGlobalMouseButtonState,
 }
 
-impl GlobalMouseState {
+impl AtomicGlobalMouseState {
     pub const fn new() -> Self {
         Self {
-            left_mouse: GlobalMouseButtonState::new(),
-            right_mouse: GlobalMouseButtonState::new(),
-            middle_mouse: GlobalMouseButtonState::new(),
-            mouse_4: GlobalMouseButtonState::new(),
-            mouse_5: GlobalMouseButtonState::new(),
+            left_mouse: AtomicGlobalMouseButtonState::new(),
+            right_mouse: AtomicGlobalMouseButtonState::new(),
+            middle_mouse: AtomicGlobalMouseButtonState::new(),
+            mouse_4: AtomicGlobalMouseButtonState::new(),
+            mouse_5: AtomicGlobalMouseButtonState::new(),
         }
     }
 }
 
-pub static mut GLOBAL_MOUSE_STATE: GlobalMouseState = GlobalMouseState::new();
+pub static mut ATOMIC_GLOBAL_MOUSE_STATE: AtomicGlobalMouseState = AtomicGlobalMouseState::new();
 
-pub const unsafe fn global_mouse_state() -> &'static mut GlobalMouseState {
-    &mut GLOBAL_MOUSE_STATE
+pub const fn global_state() -> &'static mut AtomicGlobalMouseState {
+    unsafe { &mut ATOMIC_GLOBAL_MOUSE_STATE }
 }
 
 pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
@@ -232,11 +228,9 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
     let mouse = unsafe { &*(msg.l_param as *const MSLLHOOKSTRUCT) };
     let modifiers = modifiers();
 
-    let pos = RECT {
-        left: mouse.pt.x,
-        top: mouse.pt.y,
-        right: mouse.pt.x + 1,
-        bottom: mouse.pt.y + 1,
+    let pos = AtomicPos {
+        x: AtomicI32::new(mouse.pt.x),
+        y: AtomicI32::new(mouse.pt.y),
     };
 
     unsafe {
@@ -251,20 +245,36 @@ pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
                 }
             }
             //TODO: Double clicks.
-            USER_LBUTTONDOWN => GLOBAL_MOUSE_STATE.left_mouse.pressed(pos),
-            USER_LBUTTONUP => GLOBAL_MOUSE_STATE.left_mouse.released(pos),
-            USER_RBUTTONDOWN => GLOBAL_MOUSE_STATE.right_mouse.pressed(pos),
-            USER_RBUTTONUP => GLOBAL_MOUSE_STATE.right_mouse.released(pos),
-            USER_MBUTTONDOWN => GLOBAL_MOUSE_STATE.middle_mouse.pressed(pos),
-            USER_MBUTTONUP => GLOBAL_MOUSE_STATE.middle_mouse.released(pos),
+            // USER_LBUTTONDOWN => GLOBAL_MOUSE_STATE.left_mouse.pressed(pos),
+            // USER_LBUTTONUP => GLOBAL_MOUSE_STATE.left_mouse.released(pos),
+            // USER_RBUTTONDOWN => GLOBAL_MOUSE_STATE.right_mouse.pressed(pos),
+            // USER_RBUTTONUP => GLOBAL_MOUSE_STATE.right_mouse.released(pos),
+            // USER_MBUTTONDOWN => GLOBAL_MOUSE_STATE.middle_mouse.pressed(pos),
+            // USER_MBUTTONUP => GLOBAL_MOUSE_STATE.middle_mouse.released(pos),
+            // USER_XBUTTONDOWN => match mouse.mouseData.high() {
+            //     1 => GLOBAL_MOUSE_STATE.mouse_4.pressed(pos),
+            //     2 => GLOBAL_MOUSE_STATE.mouse_5.pressed(pos),
+            //     _ => return None,
+            // },
+            // USER_XBUTTONUP => match mouse.mouseData.high() {
+            //     1 => GLOBAL_MOUSE_STATE.mouse_4.released(pos),
+            //     2 => GLOBAL_MOUSE_STATE.mouse_5.released(pos),
+            //     _ => return None,
+            // },
+            USER_LBUTTONDOWN => ATOMIC_GLOBAL_MOUSE_STATE.left_mouse.pressed(pos),
+            USER_LBUTTONUP => ATOMIC_GLOBAL_MOUSE_STATE.left_mouse.released(pos),
+            USER_RBUTTONDOWN => ATOMIC_GLOBAL_MOUSE_STATE.right_mouse.pressed(pos),
+            USER_RBUTTONUP => ATOMIC_GLOBAL_MOUSE_STATE.right_mouse.released(pos),
+            USER_MBUTTONDOWN => ATOMIC_GLOBAL_MOUSE_STATE.middle_mouse.pressed(pos),
+            USER_MBUTTONUP => ATOMIC_GLOBAL_MOUSE_STATE.middle_mouse.released(pos),
             USER_XBUTTONDOWN => match mouse.mouseData.high() {
-                1 => GLOBAL_MOUSE_STATE.mouse_4.pressed(pos),
-                2 => GLOBAL_MOUSE_STATE.mouse_5.pressed(pos),
+                1 => ATOMIC_GLOBAL_MOUSE_STATE.mouse_4.pressed(pos),
+                2 => ATOMIC_GLOBAL_MOUSE_STATE.mouse_5.pressed(pos),
                 _ => return None,
             },
             USER_XBUTTONUP => match mouse.mouseData.high() {
-                1 => GLOBAL_MOUSE_STATE.mouse_4.released(pos),
-                2 => GLOBAL_MOUSE_STATE.mouse_5.released(pos),
+                1 => ATOMIC_GLOBAL_MOUSE_STATE.mouse_4.released(pos),
+                2 => ATOMIC_GLOBAL_MOUSE_STATE.mouse_5.released(pos),
                 _ => return None,
             },
             _ => {}
