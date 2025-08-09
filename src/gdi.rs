@@ -87,6 +87,15 @@ extern "system" {
 
 #[link(name = "Gdi32")]
 extern "system" {
+    pub fn ChoosePixelFormat(hdc: *mut c_void, ppfd: *const PIXELFORMATDESCRIPTOR) -> i32;
+    pub fn DescribePixelFormat(
+        hdc: *mut c_void,
+        iPixelFormat: i32,
+        nBytes: u32,
+        ppfd: *mut PIXELFORMATDESCRIPTOR,
+    ) -> i32;
+    pub fn SetPixelFormat(hdc: *mut c_void, format: i32, ppfd: *const PIXELFORMATDESCRIPTOR) -> i32;
+    pub fn SwapBuffers(hdc: *mut c_void) -> i32;
     pub fn StretchDIBits(
         hdc: *mut c_void,
         XDest: i32,
@@ -234,3 +243,40 @@ pub struct BLENDFUNCTION {
     pub SourceConstantAlpha: u8,
     pub AlphaFormat: u8,
 }
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PIXELFORMATDESCRIPTOR {
+    pub nSize: WORD,
+    pub nVersion: WORD,
+    pub dwFlags: DWORD,
+    pub iPixelType: u8,
+    pub cColorBits: u8,
+    pub cRedBits: u8,
+    pub cRedShift: u8,
+    pub cGreenBits: u8,
+    pub cGreenShift: u8,
+    pub cBlueBits: u8,
+    pub cBlueShift: u8,
+    pub cAlphaBits: u8,
+    pub cAlphaShift: u8,
+    pub cAccumBits: u8,
+    pub cAccumRedBits: u8,
+    pub cAccumGreenBits: u8,
+    pub cAccumBlueBits: u8,
+    pub cAccumAlphaBits: u8,
+    pub cDepthBits: u8,
+    pub cStencilBits: u8,
+    pub cAuxBuffers: u8,
+    pub iLayerType: u8,
+    pub bReserved: u8,
+    pub dwLayerMask: DWORD,
+    pub dwVisibleMask: DWORD,
+    pub dwDamageMask: DWORD,
+}
+
+pub const PFD_DRAW_TO_WINDOW: DWORD = 0x0000_0004;
+pub const PFD_SUPPORT_OPENGL: DWORD = 0x0000_0020;
+pub const PFD_DOUBLEBUFFER: DWORD = 0x0000_0001;
+pub const PFD_TYPE_RGBA: u8 = 0;
+pub const PFD_MAIN_PLANE: u8 = 0;

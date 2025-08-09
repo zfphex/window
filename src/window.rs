@@ -86,8 +86,8 @@ pub fn create_window(
         assert_ne!(hwnd, 0);
         let dc = GetDC(hwnd);
 
-        //Safety: This *should* be pinned.
-        let window = Box::pin(Window {
+        // Construct window, initialize WGL, then pin.
+        let window = Window {
             //Re-grab the area after calling SetWindowPos.
             area,
             hwnd,
@@ -102,7 +102,14 @@ pub fn create_window(
             middle_mouse: MouseButtonState::new(),
             mouse_4: MouseButtonState::new(),
             mouse_5: MouseButtonState::new(),
-        });
+            hglrc: null_mut(),
+        };
+
+        //Safety: This *should* be pinned.
+        let mut window = Box::pin(window);
+
+        // Initialize WGL context after pinning to ensure stable address
+        window.init_wgl();
 
         let addr = &*window as *const Window;
         let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
@@ -128,9 +135,36 @@ pub struct Window {
     pub middle_mouse: MouseButtonState,
     pub mouse_4: MouseButtonState,
     pub mouse_5: MouseButtonState,
+    pub hglrc: HGLRC,
 }
 
 impl Window {
+    pub fn init_wgl(&mut self) {
+        unsafe {
+            let mut pfd = PIXELFORMATDESCRIPTOR::default();
+            pfd.nSize = core::mem::size_of::<PIXELFORMATDESCRIPTOR>() as WORD;
+            pfd.nVersion = 1;
+            pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+            pfd.iPixelType = PFD_TYPE_RGBA;
+            pfd.cColorBits = 32;
+            pfd.cDepthBits = 24;
+            pfd.cStencilBits = 8;
+            pfd.iLayerType = PFD_MAIN_PLANE;
+
+            let pixel_format = ChoosePixelFormat(self.dc, &pfd);
+            assert!(pixel_format > 0);
+            assert!(SetPixelFormat(self.dc, pixel_format, &pfd) != 0);
+
+            let hglrc = wglCreateContext(self.dc);
+            assert!(!hglrc.is_null());
+            assert!(wglMakeCurrent(self.dc, hglrc) != 0);
+            self.hglrc = hglrc;
+        }
+    }
+    #[inline]
+    pub fn swap_buffers(&self) {
+        unsafe { SwapBuffers(self.dc) };
+    }
     ///Updates the width and height based on the display scale.
     pub fn rescale_window(&self) {
         let area = self.client_area();
@@ -341,6 +375,12 @@ pub unsafe extern "system" fn wnd_proc(
             return 0;
         }
         WM_DESTROY => {
+            // TOOD: Cleanup WGL context, currently this is really slow, so just let windows do it.
+            // if !window.hglrc.is_null() {
+            //     wglMakeCurrent(null_mut(), null_mut());
+            //     wglDeleteContext(window.hglrc);
+            // }
+
             PostQuitMessage(0);
             window.quit = true;
             return 0;
