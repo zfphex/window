@@ -161,6 +161,9 @@ impl Window {
             self.hglrc = hglrc;
         }
     }
+    pub fn get_wgl_proc_address(&self, name: &str) -> *const c_void {
+        unsafe { wglGetProcAddress(std::ffi::CString::new(name).unwrap().as_ptr()) }
+    }
     #[inline]
     pub fn swap_buffers(&self) {
         unsafe { SwapBuffers(self.dc) };

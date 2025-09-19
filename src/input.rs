@@ -9,11 +9,12 @@ pub enum MouseButton {
     Mouse5,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MouseButtonState {
     pub pressed: bool,
     pub released: bool,
-    pub inital_position: Rect,
+    pub position: Option<Rect>,
+    pub inital_position: Option<Rect>,
     pub release_position: Option<Rect>,
 }
 
@@ -22,10 +23,12 @@ impl MouseButtonState {
         Self {
             pressed: false,
             released: false,
-            inital_position: Rect::new(0, 0, 0, 0),
+            position: None,
+            inital_position: None,
             release_position: None,
         }
     }
+
     pub const fn is_pressed(&mut self) -> bool {
         if self.pressed {
             self.pressed = false;
@@ -34,6 +37,7 @@ impl MouseButtonState {
             false
         }
     }
+
     pub const fn is_released(&mut self) -> bool {
         if self.released {
             self.released = false;
@@ -42,27 +46,33 @@ impl MouseButtonState {
             false
         }
     }
-    //TODO: I was resetting the input each frame before, not sure on the behaviour now.
-    pub const fn clicked(&mut self, area: Rect) -> bool {
-        if self.released && self.inital_position.intersects(area) {
-            self.pressed = false;
+
+    pub fn clicked(&mut self, area: Rect) -> bool {
+        let Some(inital) = self.inital_position else {
+            return false;
+        };
+
+        let Some(release) = self.release_position else {
+            return false;
+        };
+
+        //Make sure the user clicked and released the mouse on top of the desired area.
+        if self.released && inital.intersects(area) && release.intersects(area) {
+            self.position = None;
             self.released = false;
             true
         } else {
             false
         }
     }
-    // pub(crate) const fn reset(&mut self) {
-    //     self.pressed = false;
-    //     self.released = false;
-    // }
-    pub(crate) const fn pressed(&mut self, pos: Rect) {
+
+    pub(crate) fn pressed(&mut self, pos: Rect) {
         self.pressed = true;
         self.released = false;
-        self.inital_position = pos;
-        self.release_position = None;
+        self.inital_position = Some(pos);
     }
-    pub(crate) const fn released(&mut self, pos: Rect) {
+
+    pub(crate) fn released(&mut self, pos: Rect) {
         self.pressed = false;
         self.released = true;
         self.release_position = Some(pos);

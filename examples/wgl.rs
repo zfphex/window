@@ -27,5 +27,3 @@ fn main() {
         window.swap_buffers();
     }
 }
-
-
