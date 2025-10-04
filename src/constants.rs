@@ -728,6 +728,9 @@ pub const DPI_AWARENESS_PER_MONITOR_AWARE: *mut c_void = -3isize as *mut c_void;
 pub const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: *mut c_void = -4isize as *mut c_void;
 pub const DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED: *mut c_void = -5isize as *mut c_void;
 
+pub const LWA_ALPHA: u32 = 0x00000002;
+pub const LWA_COLORKEY: u32 = 0x00000001;
+
 ///https://rust-tutorials.github.io/triangle-from-scratch/appendix/utf16_literals.html
 ///
 ///```

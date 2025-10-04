@@ -10,6 +10,7 @@ use core::{
     ptr::{null, null_mut},
 };
 
+mod acrylic;
 mod clipboard;
 mod constants;
 mod dark_theme;
@@ -17,12 +18,13 @@ mod debug;
 mod event;
 mod fps;
 mod gdi;
-mod wgl;
 mod global_input;
 mod input;
 mod monitor;
+mod wgl;
 mod window;
 
+pub use acrylic::*;
 pub use clipboard::*;
 pub use constants::*;
 pub use dark_theme::*;
@@ -30,10 +32,10 @@ pub use debug::*;
 pub use event::*;
 pub use fps::*;
 pub use gdi::*;
-pub use wgl::*;
 pub use global_input::*;
 pub use input::*;
 pub use monitor::*;
+pub use wgl::*;
 pub use window::*;
 
 pub type BYTE = u8;
@@ -118,6 +120,7 @@ extern "system" {
     pub fn GetWindowRect(hwnd: isize, lpRect: *mut RECT) -> i32;
     pub fn GetClientRect(hwnd: isize, lpRect: *mut RECT) -> i32;
     pub fn ClientToScreen(hwnd: isize, lpPoint: *mut POINT) -> i32;
+    pub fn ScreenToClient(hwnd: isize, point: *mut POINT) -> i32;
     pub fn ValidateRect(hwnd: isize, lpRect: *const RECT) -> i32;
     pub fn SetWindowPos(
         hWnd: isize,

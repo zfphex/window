@@ -392,7 +392,6 @@ pub unsafe extern "system" fn wnd_proc(
         //Do it in the UI library for now?
         WM_SIZE => {
             let (width, height) = (low, high);
-            mini::info!("Resizing to width: {}, height: {}", width, height);
             window.buffer.clear();
             window.buffer.resize(width * height, 0);
             window.bitmap = BITMAPINFO::new(width as i32, height as i32);
@@ -484,6 +483,8 @@ pub unsafe extern "system" fn wnd_proc(
             }
             return 0;
         }
-        _ => return DefWindowProcA(hwnd, msg, wparam, lparam),
+        _ => {
+            return DefWindowProcA(hwnd, msg, wparam, lparam);
+        }
     }
 }
