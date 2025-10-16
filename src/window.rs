@@ -103,13 +103,15 @@ pub fn create_window(
             mouse_4: MouseButtonState::new(),
             mouse_5: MouseButtonState::new(),
             hglrc: null_mut(),
+            focused: true,
         };
 
         //Safety: This *should* be pinned.
-        let mut window = Box::pin(window);
+        let window = Box::pin(window);
 
         // Initialize WGL context after pinning to ensure stable address
-        window.init_wgl();
+        // This is slow !!!
+        // window.init_wgl();
 
         let addr = &*window as *const Window;
         let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
@@ -136,6 +138,7 @@ pub struct Window {
     pub mouse_4: MouseButtonState,
     pub mouse_5: MouseButtonState,
     pub hglrc: HGLRC,
+    pub focused: bool,
 }
 
 impl Window {
@@ -211,6 +214,9 @@ impl Window {
     #[inline(always)]
     pub const fn height(&self) -> usize {
         self.area.height
+    }
+    pub const fn focused(&self) -> bool {
+        self.focused
     }
     pub fn borderless(&mut self) {
         unsafe {
@@ -481,6 +487,14 @@ pub unsafe extern "system" fn wnd_proc(
             } else if button == 2 {
                 window.mouse_5.released(Rect::new(low, high, 1, 1));
             }
+            return 0;
+        }
+        WM_KILLFOCUS => {
+            window.focused = false;
+            return 0;
+        }
+        WM_SETFOCUS => {
+            window.focused = true;
             return 0;
         }
         _ => {
