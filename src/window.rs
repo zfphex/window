@@ -102,6 +102,7 @@ pub fn create_window(
             middle_mouse: MouseButtonState::new(),
             mouse_4: MouseButtonState::new(),
             mouse_5: MouseButtonState::new(),
+            tray: MouseButtonState::new(),
             hglrc: null_mut(),
             focused: true,
         };
@@ -137,6 +138,7 @@ pub struct Window {
     pub middle_mouse: MouseButtonState,
     pub mouse_4: MouseButtonState,
     pub mouse_5: MouseButtonState,
+    pub tray: MouseButtonState,
     pub hglrc: HGLRC,
     pub focused: bool,
 }
@@ -497,6 +499,15 @@ pub unsafe extern "system" fn wnd_proc(
             window.focused = true;
             return 0;
         }
+        WM_TRAYICON if low as u32 == WM_LBUTTONDOWN => {
+            //Position doesn't really matter.
+            window.tray.pressed(Rect::default());
+            return 0;
+        }
+        // WM_TRAYICON => {
+        //     dbg!(low);
+        //     return 0;
+        // }
         _ => {
             return DefWindowProcA(hwnd, msg, wparam, lparam);
         }

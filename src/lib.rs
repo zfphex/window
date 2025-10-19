@@ -22,6 +22,7 @@ mod gdi;
 mod global_input;
 mod input;
 mod monitor;
+mod tray;
 mod wgl;
 mod window;
 
@@ -37,6 +38,7 @@ pub use gdi::*;
 pub use global_input::*;
 pub use input::*;
 pub use monitor::*;
+pub use tray::*;
 pub use wgl::*;
 pub use window::*;
 
@@ -159,6 +161,7 @@ extern "system" {
 
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
     pub fn ReleaseCapture() -> i32;
+    pub fn LoadIconA(hInstance: *mut c_void, lpIconName: *const i8) -> *mut c_void;
 }
 
 #[repr(C)]
@@ -353,3 +356,11 @@ impl LowHighOrder for u32 {
         (self >> 16) & 0xffff
     }
 }
+
+// Icon resource identifiers
+pub const IDI_APPLICATION: i32 = 32512;
+pub const IDI_HAND: i32 = 32513;
+pub const IDI_QUESTION: i32 = 32514;
+pub const IDI_EXCLAMATION: i32 = 32515;
+pub const IDI_ASTERISK: i32 = 32516;
+pub const IDI_WINLOGO: i32 = 32517;
