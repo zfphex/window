@@ -1,6 +1,9 @@
 use crate::*;
 use std::sync::{
-    atomic::{AtomicBool, AtomicI32, Ordering::*},
+    atomic::{
+        AtomicBool, AtomicI32,
+        Ordering::{self, *},
+    },
     Once,
 };
 
@@ -52,82 +55,75 @@ const USER_XBUTTONDOWN: u32 = WM_USER + 11;
 const USER_XBUTTONUP: u32 = WM_USER + 12;
 const USER_XBUTTONDBLCLK: u32 = WM_USER + 13;
 
-pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
-    if code >= 0 {
-        let msg = match w_param as u32 {
-            WM_MOUSEWHEEL => {
-                let thread_id = GetCurrentThreadId();
-                //For some reaons the mouse data is not working when I send it over.
-                let mouse = unsafe { &*(l_param as *const MSLLHOOKSTRUCT) };
-                //Just pass the delta into the w_param and convert it back to i16.
-                //Should be fine right? 😏
-                let delta = (mouse.mouseData >> 16) as i16;
-                assert!(
-                    PostThreadMessageA(thread_id, USER_MOUSEWHEEL, delta as usize, l_param) != 0
-                );
-                return CallNextHookEx(HOOK, code, w_param, l_param);
-            }
-            WM_LBUTTONDOWN => USER_LBUTTONDOWN,
-            WM_LBUTTONUP => USER_LBUTTONUP,
-            WM_LBUTTONDBLCLK => USER_LBUTTONDBLCLK,
-            WM_RBUTTONDOWN => USER_RBUTTONDOWN,
-            WM_RBUTTONUP => USER_RBUTTONUP,
-            WM_RBUTTONDBLCLK => USER_RBUTTONDBLCLK,
-            WM_MBUTTONDOWN => USER_MBUTTONDOWN,
-            WM_MBUTTONUP => USER_MBUTTONUP,
-            WM_MBUTTONDBLCLK => USER_MBUTTONDBLCLK,
-            WM_XBUTTONDOWN => USER_XBUTTONDOWN,
-            WM_XBUTTONUP => USER_XBUTTONUP,
-            WM_XBUTTONDBLCLK => USER_XBUTTONDBLCLK,
-            _ => return CallNextHookEx(HOOK, code, w_param, l_param),
-        };
+// pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
+//     if code >= 0 {
+//         let msg = match w_param as u32 {
+//             WM_MOUSEWHEEL => {
+//                 let thread_id = GetCurrentThreadId();
+//                 //For some reaons the mouse data is not working when I send it over.
+//                 let mouse = unsafe { &*(l_param as *const MSLLHOOKSTRUCT) };
+//                 //Just pass the delta into the w_param and convert it back to i16.
+//                 //Should be fine right? 😏
+//                 let delta = (mouse.mouseData >> 16) as i16;
+//                 assert!(
+//                     PostThreadMessageA(thread_id, USER_MOUSEWHEEL, delta as usize, l_param) != 0
+//                 );
+//                 return CallNextHookEx(HOOK, code, w_param, l_param);
+//             }
+//             WM_LBUTTONDOWN => USER_LBUTTONDOWN,
+//             WM_LBUTTONUP => USER_LBUTTONUP,
+//             WM_LBUTTONDBLCLK => USER_LBUTTONDBLCLK,
+//             WM_RBUTTONDOWN => USER_RBUTTONDOWN,
+//             WM_RBUTTONUP => USER_RBUTTONUP,
+//             WM_RBUTTONDBLCLK => USER_RBUTTONDBLCLK,
+//             WM_MBUTTONDOWN => USER_MBUTTONDOWN,
+//             WM_MBUTTONUP => USER_MBUTTONUP,
+//             WM_MBUTTONDBLCLK => USER_MBUTTONDBLCLK,
+//             WM_XBUTTONDOWN => USER_XBUTTONDOWN,
+//             WM_XBUTTONUP => USER_XBUTTONUP,
+//             WM_XBUTTONDBLCLK => USER_XBUTTONDBLCLK,
+//             _ => return CallNextHookEx(HOOK, code, w_param, l_param),
+//         };
 
-        let thread_id = GetCurrentThreadId();
-        assert!(PostThreadMessageA(thread_id, msg, w_param, l_param) != 0);
-    }
+//         let thread_id = GetCurrentThreadId();
+//         assert!(PostThreadMessageA(thread_id, msg, w_param, l_param) != 0);
+//     }
 
-    CallNextHookEx(HOOK, code, w_param, l_param)
-}
+//     CallNextHookEx(HOOK, code, w_param, l_param)
+// }
 
-pub fn poll_global_events() -> Option<Event> {
+pub unsafe fn watch_global_mouse_events() {
     unsafe {
         ONCE.call_once(|| {
             let instance = GetModuleHandleA(core::ptr::null());
             HOOK = SetWindowsHookExA(WH_MOUSE_LL, Some(mouse_proc), instance, 0);
             assert!(!HOOK.is_null());
         });
-
         let mut msg: MSG = core::mem::zeroed();
         let result = PeekMessageA(&mut msg, 0, 0, 0, PM_REMOVE);
-
-        if msg.message > WM_USER {
-            handle_mouse_msg(msg, result)
-        } else {
-            // TranslateMessage(&msg);
-            // DispatchMessageA(&msg);
-            None
-        }
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
     }
 }
 
-pub fn wait_for_global_events() -> Option<Event> {
-    unsafe {
-        ONCE.call_once(|| {
-            let instance = GetModuleHandleA(core::ptr::null());
-            HOOK = SetWindowsHookExA(WH_MOUSE_LL, Some(mouse_proc), instance, 0);
-            assert!(!HOOK.is_null());
-        });
+// pub fn wait_for_global_events() -> Option<Event> {
+//     unsafe {
+//         ONCE.call_once(|| {
+//             let instance = GetModuleHandleA(core::ptr::null());
+//             HOOK = SetWindowsHookExA(WH_MOUSE_LL, Some(mouse_proc), instance, 0);
+//             assert!(!HOOK.is_null());
+//         });
 
-        let mut msg: MSG = core::mem::zeroed();
-        let result = GetMessageA(&mut msg, 0, 0, 0);
+//         let mut msg: MSG = core::mem::zeroed();
+//         let result = GetMessageA(&mut msg, 0, 0, 0);
 
-        if msg.message > WM_USER {
-            handle_mouse_msg(msg, result)
-        } else {
-            None
-        }
-    }
-}
+//         if msg.message > WM_USER {
+//             handle_mouse_msg(msg, result)
+//         } else {
+//             None
+//         }
+//     }
+// }
 
 #[derive(Debug, Default)]
 pub struct AtomicPos {
@@ -141,6 +137,12 @@ impl AtomicPos {
             x: AtomicI32::new(0),
             y: AtomicI32::new(0),
         }
+    }
+    pub fn get_x(&self) -> i32 {
+        self.x.load(Ordering::Relaxed)
+    }
+    pub fn get_y(&self) -> i32 {
+        self.y.load(Ordering::Relaxed)
     }
 }
 
@@ -204,6 +206,7 @@ impl GlobalMouseState {
     }
 }
 
+//TODO: Use UnsafeCell for this.
 pub static mut GLOBAL_MOUSE_STATE: GlobalMouseState = GlobalMouseState::new();
 
 #[allow(static_mut_refs)]
@@ -211,62 +214,53 @@ pub const fn global_state() -> &'static mut GlobalMouseState {
     unsafe { &mut GLOBAL_MOUSE_STATE }
 }
 
-pub fn handle_mouse_msg(msg: MSG, result: i32) -> Option<Event> {
-    match result {
-        -1 => {
-            let last_error = unsafe { GetLastError() };
-            panic!("Error with `GetMessageA`, error code: {}", last_error);
-        }
-        0 => return None,
-        _ => {}
-    }
+pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
+    let msg = w_param as u32;
+    let ptr = l_param as *const MSLLHOOKSTRUCT;
 
-    let ptr = msg.l_param as *const MSLLHOOKSTRUCT;
-    if ptr.is_null() {
-        return None;
-    }
+    if code >= 0 && !ptr.is_null() {
+        let mouse = unsafe { &*(l_param as *const MSLLHOOKSTRUCT) };
+        let modifiers = modifiers();
 
-    let mouse = unsafe { &*(msg.l_param as *const MSLLHOOKSTRUCT) };
-    let modifiers = modifiers();
+        let pos = AtomicPos {
+            x: AtomicI32::new(mouse.pt.x),
+            y: AtomicI32::new(mouse.pt.y),
+        };
 
-    let pos = AtomicPos {
-        x: AtomicI32::new(mouse.pt.x),
-        y: AtomicI32::new(mouse.pt.y),
-    };
+        // dbg!(mouse, modifiers, &pos);
 
-    unsafe {
-        match msg.message {
-            USER_MOUSEWHEEL => {
+        let msg = match w_param as u32 {
+            WM_MOUSEWHEEL => {
                 const WHEEL_DELTA: i16 = 120;
-                let delta = (msg.w_param as i16) as f32 / WHEEL_DELTA as f32;
-                if delta >= 0.0 {
-                    return Some(Event::Input(Key::ScrollUp, modifiers));
-                } else {
-                    return Some(Event::Input(Key::ScrollDown, modifiers));
-                }
+                let delta = (w_param as i16) as f32 / WHEEL_DELTA as f32;
+                // if delta >= 0.0 {
+                //     return Some(Event::Input(Key::ScrollUp, modifiers));
+                // } else {
+                //     return Some(Event::Input(Key::ScrollDown, modifiers));
+                // }
             }
             //TODO: Double clicks.
-            USER_LBUTTONDOWN => GLOBAL_MOUSE_STATE.left_mouse.pressed(pos),
-            USER_LBUTTONUP => GLOBAL_MOUSE_STATE.left_mouse.released(pos),
-            USER_RBUTTONDOWN => GLOBAL_MOUSE_STATE.right_mouse.pressed(pos),
-            USER_RBUTTONUP => GLOBAL_MOUSE_STATE.right_mouse.released(pos),
-            USER_MBUTTONDOWN => GLOBAL_MOUSE_STATE.middle_mouse.pressed(pos),
-            USER_MBUTTONUP => GLOBAL_MOUSE_STATE.middle_mouse.released(pos),
-            USER_XBUTTONDOWN => match mouse.mouseData.high() {
+            WM_LBUTTONDOWN => GLOBAL_MOUSE_STATE.left_mouse.pressed(pos),
+            WM_LBUTTONUP => GLOBAL_MOUSE_STATE.left_mouse.released(pos),
+            WM_RBUTTONDOWN => GLOBAL_MOUSE_STATE.right_mouse.pressed(pos),
+            WM_RBUTTONUP => GLOBAL_MOUSE_STATE.right_mouse.released(pos),
+            WM_MBUTTONDOWN => GLOBAL_MOUSE_STATE.middle_mouse.pressed(pos),
+            WM_MBUTTONUP => GLOBAL_MOUSE_STATE.middle_mouse.released(pos),
+            WM_XBUTTONDOWN => match mouse.mouseData.high() {
                 1 => GLOBAL_MOUSE_STATE.mouse_4.pressed(pos),
                 2 => GLOBAL_MOUSE_STATE.mouse_5.pressed(pos),
-                _ => return None,
+                _ => {} // _ => return None,
             },
-            USER_XBUTTONUP => match mouse.mouseData.high() {
+            WM_XBUTTONUP => match mouse.mouseData.high() {
                 1 => GLOBAL_MOUSE_STATE.mouse_4.released(pos),
                 2 => GLOBAL_MOUSE_STATE.mouse_5.released(pos),
-                _ => return None,
+                _ => {} // _ => return None,
             },
             _ => {}
         };
     }
 
-    None
+    CallNextHookEx(HOOK, code, w_param, l_param)
 }
 
 ///https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes

@@ -24,6 +24,8 @@ fn main() {
             println!("Clicked mouse 5 mouse :)");
         }
 
-        poll_global_events();
+        unsafe {
+            watch_global_mouse_events();
+        }
     }
 }

@@ -266,10 +266,10 @@ impl Rect {
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct RECT {
-    left: i32,
-    top: i32,
-    right: i32,
-    bottom: i32,
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
 }
 
 #[repr(C)]

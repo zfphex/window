@@ -20,9 +20,9 @@ fn main() {
         }
 
         //This has major issues.
-        if let Some(event) = poll_global_events() {
-            println!("{:#?}", event);
-        }
+        // if let Some(event) = poll_global_events() {
+        //     println!("{:#?}", event);
+        // }
     }
 
     //TODO: Is this needed?
