@@ -41,19 +41,19 @@ extern "system" {
 pub static mut HOOK: *mut c_void = core::ptr::null_mut();
 pub static mut ONCE: Once = Once::new();
 
-const USER_MOUSEWHEEL: u32 = WM_USER + 1;
-const USER_LBUTTONDOWN: u32 = WM_USER + 2;
-const USER_LBUTTONUP: u32 = WM_USER + 3;
-const USER_LBUTTONDBLCLK: u32 = WM_USER + 4;
-const USER_RBUTTONDOWN: u32 = WM_USER + 5;
-const USER_RBUTTONUP: u32 = WM_USER + 6;
-const USER_RBUTTONDBLCLK: u32 = WM_USER + 7;
-const USER_MBUTTONDOWN: u32 = WM_USER + 8;
-const USER_MBUTTONUP: u32 = WM_USER + 9;
-const USER_MBUTTONDBLCLK: u32 = WM_USER + 10;
-const USER_XBUTTONDOWN: u32 = WM_USER + 11;
-const USER_XBUTTONUP: u32 = WM_USER + 12;
-const USER_XBUTTONDBLCLK: u32 = WM_USER + 13;
+// const USER_MOUSEWHEEL: u32 = WM_USER + 1;
+// const USER_LBUTTONDOWN: u32 = WM_USER + 2;
+// const USER_LBUTTONUP: u32 = WM_USER + 3;
+// const USER_LBUTTONDBLCLK: u32 = WM_USER + 4;
+// const USER_RBUTTONDOWN: u32 = WM_USER + 5;
+// const USER_RBUTTONUP: u32 = WM_USER + 6;
+// const USER_RBUTTONDBLCLK: u32 = WM_USER + 7;
+// const USER_MBUTTONDOWN: u32 = WM_USER + 8;
+// const USER_MBUTTONUP: u32 = WM_USER + 9;
+// const USER_MBUTTONDBLCLK: u32 = WM_USER + 10;
+// const USER_XBUTTONDOWN: u32 = WM_USER + 11;
+// const USER_XBUTTONUP: u32 = WM_USER + 12;
+// const USER_XBUTTONDBLCLK: u32 = WM_USER + 13;
 
 // pub unsafe extern "system" fn mouse_proc(code: i32, w_param: usize, l_param: isize) -> isize {
 //     if code >= 0 {
