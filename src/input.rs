@@ -11,11 +11,11 @@ pub enum MouseButton {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MouseButtonState {
-    pressed: bool,
-    released: bool,
-    position: Option<Rect>,
-    inital_position: Option<Rect>,
-    release_position: Option<Rect>,
+    pub pressed: bool,
+    pub released: bool,
+    pub position: Option<Rect>,
+    pub inital_position: Option<Rect>,
+    pub release_position: Option<Rect>,
 }
 
 impl MouseButtonState {
