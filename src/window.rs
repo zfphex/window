@@ -144,6 +144,56 @@ pub struct Window {
 }
 
 impl Window {
+    pub const unsafe fn empty() -> Self {
+        Self {
+            hwnd: 0,
+            display_scale: 1.0,
+            dc: unsafe { core::mem::zeroed() },
+            buffer: Vec::new(),
+            bitmap: BITMAPINFO {
+                header: BITMAPINFOHEADER {
+                    size: 0,
+                    width: 0,
+                    height: 0,
+                    planes: 0,
+                    bit_count: 0,
+                    compression: 0,
+                    size_image: 0,
+                    x_pels_per_meter: 0,
+                    y_pels_per_meter: 0,
+                    clr_used: 0,
+                    clr_important: 0,
+                },
+                colors: [RGBQUAD {
+                    blue: 0,
+                    green: 0,
+                    red: 0,
+                    reserved: 0,
+                }; 1],
+            },
+            area: Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            },
+            quit: false,
+            mouse_position: Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            },
+            left_mouse: MouseButtonState::new(),
+            right_mouse: MouseButtonState::new(),
+            middle_mouse: MouseButtonState::new(),
+            mouse_4: MouseButtonState::new(),
+            mouse_5: MouseButtonState::new(),
+            tray: MouseButtonState::new(),
+            hglrc: unsafe { core::mem::zeroed() },
+            focused: false,
+        }
+    }
     pub fn init_wgl(&mut self) {
         unsafe {
             let mut pfd = PIXELFORMATDESCRIPTOR::default();
