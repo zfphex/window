@@ -161,6 +161,7 @@ extern "system" {
 
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
     pub fn ReleaseCapture() -> i32;
+    pub fn SetCapture(hwnd: isize) -> isize;
     pub fn LoadIconA(hInstance: *mut c_void, lpIconName: *const i8) -> *mut c_void;
 }
 
@@ -197,6 +198,15 @@ pub struct Rect {
     pub y: usize,
     pub width: usize,
     pub height: usize,
+}
+
+impl std::ops::AddAssign for Rect {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.width += rhs.width;
+        self.height += rhs.height;
+    }
 }
 
 impl Rect {
@@ -243,6 +253,39 @@ impl Rect {
             && self.x + self.width > other.x
             && self.y < other.y + other.height
             && self.y + self.height > other.y
+    }
+    pub const fn contains(&self, x: usize, y: usize) -> bool {
+        x >= self.x && x < self.x + self.width && y >= self.y && y < self.y + self.height
+    }
+    #[rustfmt::skip]
+    pub fn intersection(&self, other: Rect) -> Rect {
+        let x1 = self.x.max(other.x);
+        let y1 = self.y.max(other.y);
+        let x2 = (self.x + self.width).min(other.x + other.width);
+        let y2 = (self.y + self.height).min(other.y + other.height);
+        if x2 > x1 && y2 > y1 {
+            Rect { x: x1, y: y1, width: (x2 - x1), height: (y2 - y1)  }
+        } else {
+            Rect::new(0, 0, 0, 0)
+        }
+    }
+    pub fn split_h(&self, left_width: usize) -> (Rect, Rect) {
+        let total_w = (self.x + self.width).saturating_sub(self.x);
+        let total_h = (self.y + self.height).saturating_sub(self.y);
+        let left_w = left_width.min(total_w);
+        let right_w = total_w.saturating_sub(left_w);
+        let left_rect = Rect::new(self.x, self.y, left_w, total_h);
+        let right_rect = Rect::new(self.x + left_w, self.y, right_w, total_h);
+        (left_rect, right_rect)
+    }
+    pub fn split_v(&self, top_height: usize) -> (Rect, Rect) {
+        let total_w = (self.x + self.width).saturating_sub(self.x);
+        let total_h = (self.y + self.height).saturating_sub(self.y);
+        let top_h = top_height.min(total_h);
+        let bottom_h = total_h.saturating_sub(top_h);
+        let top_rect = Rect::new(self.x, self.y, total_w, top_h);
+        let bottom_rect = Rect::new(self.x, self.y + top_h, total_w, bottom_h);
+        (top_rect, bottom_rect)
     }
     //TODO: Bounds checking
     pub const fn inner(&self, w: usize, h: usize) -> Rect {

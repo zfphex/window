@@ -426,6 +426,10 @@ pub unsafe extern "system" fn wnd_proc(
     //I'm not convinced this is the right way to do this.
     let window: &mut Window = &mut *ptr;
 
+    //Clamp negative numbers to 0
+    let mx = (lparam as i16).max(0) as usize;
+    let my = ((lparam >> 16) as i16).max(0) as usize;
+
     let low = (lparam & 0xffff) as usize;
     let high = ((lparam >> 16) & 0xffff) as usize;
 
@@ -496,34 +500,41 @@ pub unsafe extern "system" fn wnd_proc(
             return 0;
         }
         WM_MOUSEMOVE => {
-            window.mouse_position = Rect::new(low, high, 1, 1);
+            window.mouse_position = Rect::new(mx, my, 1, 1);
             return 0;
         }
         WM_LBUTTONDOWN => {
+            SetCapture(hwnd);
             window.left_mouse.pressed(Rect::new(low, high, 1, 1));
             return 0;
         }
         WM_LBUTTONUP => {
+            ReleaseCapture();
             window.left_mouse.released(Rect::new(low, high, 1, 1));
             return 0;
         }
         WM_RBUTTONDOWN => {
+            SetCapture(hwnd);
             window.right_mouse.pressed(Rect::new(low, high, 1, 1));
             return 0;
         }
         WM_RBUTTONUP => {
+            ReleaseCapture();
             window.right_mouse.released(Rect::new(low, high, 1, 1));
             return 0;
         }
         WM_MBUTTONDOWN => {
+            SetCapture(hwnd);
             window.middle_mouse.pressed(Rect::new(low, high, 1, 1));
             return 0;
         }
         WM_MBUTTONUP => {
+            ReleaseCapture();
             window.middle_mouse.released(Rect::new(low, high, 1, 1));
             return 0;
         }
         WM_XBUTTONDOWN => {
+            SetCapture(hwnd);
             let button = ((wparam >> 16) & 0xffff) as usize;
             if button == 1 {
                 window.mouse_4.pressed(Rect::new(low, high, 1, 1));
@@ -533,6 +544,7 @@ pub unsafe extern "system" fn wnd_proc(
             return 0;
         }
         WM_XBUTTONUP => {
+            ReleaseCapture();
             let button = ((wparam >> 16) & 0xffff) as usize;
             if button == 1 {
                 window.mouse_4.released(Rect::new(low, high, 1, 1));
