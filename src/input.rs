@@ -13,7 +13,6 @@ pub enum MouseButton {
 pub struct MouseButtonState {
     pub pressed: bool,
     pub released: bool,
-    pub position: Option<Rect>,
     pub inital_position: Option<Rect>,
     pub release_position: Option<Rect>,
 }
@@ -23,7 +22,6 @@ impl MouseButtonState {
         Self {
             pressed: false,
             released: false,
-            position: None,
             inital_position: None,
             release_position: None,
         }
@@ -58,7 +56,6 @@ impl MouseButtonState {
 
         //Make sure the user clicked and released the mouse on top of the desired area.
         if self.released && inital.intersects(area) && release.intersects(area) {
-            self.position = None;
             self.released = false;
             true
         } else {
