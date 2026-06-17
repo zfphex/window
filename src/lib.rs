@@ -287,13 +287,12 @@ impl Rect {
         let bottom_rect = Rect::new(self.x, self.y + top_h, total_w, bottom_h);
         (top_rect, bottom_rect)
     }
-    //TODO: Bounds checking
     pub const fn inner(&self, w: usize, h: usize) -> Rect {
         Rect {
             x: self.x + w,
             y: self.y + h,
-            width: self.width - 2 * w,
-            height: self.height - 2 * h,
+            width: self.width.saturating_sub(2 * w),
+            height: self.height.saturating_sub(2 * h),
         }
     }
     pub const fn from_windows(rect: RECT) -> Rect {
