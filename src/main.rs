@@ -12,6 +12,7 @@ fn main() {
         match window.event() {
             Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
             Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
+            // Some(Event::MouseMove(x, y)) => println!("{x} {y}"),
             _ => {}
         }
 

@@ -175,6 +175,12 @@ pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
                 _ => Key::Unknown(vk as u16),
             }
         }
+        WM_MOUSEMOVE => {
+            unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
+            let mx = (msg.l_param & 0xFFFF) as i16 as i32;
+            let my = ((msg.l_param >> 16) & 0xFFFF) as i16 as i32;
+            return Some(Event::MouseMove(mx, my));
+        }
         _ => {
             unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
             return None;
