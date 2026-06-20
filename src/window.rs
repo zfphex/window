@@ -194,6 +194,7 @@ impl Window {
             focused: false,
         }
     }
+
     pub fn init_wgl(&mut self) {
         unsafe {
             let mut pfd = PIXELFORMATDESCRIPTOR::default();
@@ -216,13 +217,25 @@ impl Window {
             self.hglrc = hglrc;
         }
     }
+
     pub fn get_wgl_proc_address(&self, name: &str) -> *const c_void {
         unsafe { wglGetProcAddress(std::ffi::CString::new(name).unwrap().as_ptr()) }
     }
-    #[inline]
+
+    pub fn set_swap_interval(&self, interval: i32) {
+        let name_c = std::ffi::CString::new("wglSwapIntervalEXT").unwrap();
+        let ptr = unsafe { wglGetProcAddress(name_c.as_ptr()) };
+        assert!(!ptr.is_null());
+        unsafe {
+            let func: unsafe extern "system" fn(i32) -> i32 = core::mem::transmute(ptr);
+            func(interval);
+        }
+    }
+
     pub fn swap_buffers(&self) {
         unsafe { SwapBuffers(self.dc) };
     }
+
     ///Updates the width and height based on the display scale.
     pub fn rescale_window(&self) {
         let area = self.client_area();
@@ -252,6 +265,12 @@ impl Window {
     }
     pub const fn display_scale(&self) -> f32 {
         self.display_scale
+    }
+    pub fn set_title(&self, title: &str) {
+        let title_c = std::ffi::CString::new(title).unwrap();
+        unsafe {
+            SetWindowTextA(self.hwnd, title_c.as_ptr() as *const u8);
+        }
     }
     #[inline]
     pub fn client_area(&self) -> Rect {

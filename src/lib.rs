@@ -163,6 +163,7 @@ extern "system" {
     pub fn ReleaseCapture() -> i32;
     pub fn SetCapture(hwnd: isize) -> isize;
     pub fn LoadIconA(hInstance: *mut c_void, lpIconName: *const i8) -> *mut c_void;
+    pub fn SetWindowTextA(hwnd: isize, lpString: *const u8) -> i32;
 }
 
 #[repr(C)]
