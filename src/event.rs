@@ -113,6 +113,7 @@ pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
                 VK_LEFT => Key::Left,
                 VK_RIGHT => Key::Right,
                 VK_LWIN => Key::LeftWindows,
+                VK_RETURN => Key::Enter,
                 VK_RWIN => Key::RightWindows,
                 VK_APPS => Key::Menu,
                 VK_SCROLL => Key::ScrollLock,
