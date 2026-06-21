@@ -102,9 +102,11 @@ pub fn create_window(
             middle_mouse: MouseButtonState::new(),
             mouse_4: MouseButtonState::new(),
             mouse_5: MouseButtonState::new(),
+            input: InputState::new(),
             tray: MouseButtonState::new(),
             hglrc: null_mut(),
             focused: true,
+            needs_frame_advance: false,
         };
 
         //Safety: This *should* be pinned.
@@ -133,6 +135,7 @@ pub struct Window {
     pub area: Rect,
     pub quit: bool,
     pub mouse_position: Rect,
+    pub input: InputState,
     pub left_mouse: MouseButtonState,
     pub right_mouse: MouseButtonState,
     pub middle_mouse: MouseButtonState,
@@ -141,6 +144,7 @@ pub struct Window {
     pub tray: MouseButtonState,
     pub hglrc: HGLRC,
     pub focused: bool,
+    needs_frame_advance: bool,
 }
 
 impl Window {
@@ -185,6 +189,7 @@ impl Window {
                 height: 0,
             },
             left_mouse: MouseButtonState::new(),
+            input: InputState::new(),
             right_mouse: MouseButtonState::new(),
             middle_mouse: MouseButtonState::new(),
             mouse_4: MouseButtonState::new(),
@@ -192,6 +197,7 @@ impl Window {
             tray: MouseButtonState::new(),
             hglrc: unsafe { core::mem::zeroed() },
             focused: false,
+            needs_frame_advance: false,
         }
     }
 
@@ -334,7 +340,57 @@ impl Window {
             );
         };
     }
-    pub fn event(&self) -> Option<Event> {
+
+    pub fn translate_message(&mut self, msg: MSG, message_result: i32) -> Option<Event> {
+        let (mouse_x, mouse_y) = (msg.pt.x, msg.pt.y);
+        let modifiers = modifiers();
+
+        if message_result == 0 {
+            return None;
+        } else if message_result == -1 {
+            let last_error = unsafe { GetLastError() };
+            panic!("Error with `GetMessageA`, error code: {}", last_error);
+        }
+
+        match msg.message {
+            // WM_MOUSEWHEEL => {
+            //     const WHEEL_DELTA: i16 = 120;
+            //     let value = (msg.w_param >> 16) as i16;
+            //     let delta = value as f32 / WHEEL_DELTA as f32;
+            //     self.input.scroll_delta = delta;
+            // }
+            //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
+            // WM_KEYDOWN | WM_SYSKEYDOWN => {
+            //     self.input.set_key_down(msg.w_param as usize);
+            // }
+            // WM_KEYUP | WM_SYSKEYUP => {
+            //     self.input.set_key_up(msg.w_param as usize);
+            // }
+            WM_CHAR => {
+                if let Some(c) = char::from_u32(msg.w_param as u32) {
+                    if !c.is_control() {
+                        return Some(Event::Char(c));
+                    }
+                }
+            }
+            // WM_MOUSEMOVE => {
+            // unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
+            // let mx = (msg.l_param & 0xFFFF) as i16 as i32;
+            // let my = ((msg.l_param >> 16) & 0xFFFF) as i16 as i32;
+            // self.mouse_position = Rect::new(mx, my, 1, 1);
+            // self.input.mouse_x = mx;
+            // self.input.mouse_y = my;
+            // return Some(Event::MouseMove(mx, my));
+            // }
+            _ => {
+                unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
+            }
+        };
+
+        return None;
+    }
+
+    pub fn event(&mut self) -> Option<Event> {
         if self.quit {
             return Some(Event::Quit);
         }
@@ -342,10 +398,10 @@ impl Window {
         unsafe {
             let mut msg = MSG::new();
             let result = PeekMessageA(&mut msg, self.hwnd, 0, 0, PM_REMOVE);
-            translate_message(msg, result)
+            self.translate_message(msg, result)
         }
     }
-    pub fn event_blocking(&self) -> Option<Event> {
+    pub fn event_blocking(&mut self) -> Option<Event> {
         if self.quit {
             return Some(Event::Quit);
         }
@@ -353,8 +409,35 @@ impl Window {
         unsafe {
             let mut msg = MSG::new();
             let result = GetMessageA(&mut msg, self.hwnd, 0, 0);
-            translate_message(msg, result)
+            self.translate_message(msg, result)
         }
+    }
+    pub fn sink_events(&mut self) -> Option<Event> {
+        if self.needs_frame_advance {
+            self.input.advance_frame();
+            self.needs_frame_advance = false;
+        }
+
+        if self.quit {
+            return Some(Event::Quit);
+        }
+
+        unsafe {
+            let mut msg = MSG::default();
+
+            let mut result = 1;
+            while result != 0 {
+                result = PeekMessageA(&mut msg, self.hwnd, 0, 0, PM_REMOVE);
+                TranslateMessage(&msg);
+                DispatchMessageA(&msg);
+                if let Some(event) = self.translate_message(msg.clone(), result) {
+                    return Some(event);
+                }
+            }
+        }
+
+        self.needs_frame_advance = true;
+        None
     }
     pub fn vsync(&self) {
         unsafe { DwmFlush() };
@@ -520,6 +603,21 @@ pub unsafe extern "system" fn wnd_proc(
         }
         WM_MOUSEMOVE => {
             window.mouse_position = Rect::new(mx, my, 1, 1);
+            return 0;
+        }
+        WM_MOUSEWHEEL => {
+            const WHEEL_DELTA: i16 = 120;
+            let value = (wparam >> 16) as i16;
+            let delta = value as f32 / WHEEL_DELTA as f32;
+            window.input.scroll_delta = delta;
+            return 0;
+        }
+        WM_KEYDOWN | WM_SYSKEYDOWN => {
+            window.input.set_key_down(wparam);
+            return 0;
+        }
+        WM_KEYUP | WM_SYSKEYUP => {
+            window.input.set_key_up(wparam);
             return 0;
         }
         WM_LBUTTONDOWN => {

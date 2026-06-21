@@ -75,3 +75,63 @@ impl MouseButtonState {
         self.release_position = Some(pos);
     }
 }
+
+#[derive(Debug)]
+pub struct InputState {
+    pub current_keys: [bool; 256],
+    pub previous_keys: [bool; 256],
+    pub mouse_x: i32,
+    pub mouse_y: i32,
+    pub scroll_delta: f32,
+}
+
+impl InputState {
+    pub const fn new() -> Self {
+        Self {
+            current_keys: [false; 256],
+            previous_keys: [false; 256],
+            mouse_x: 0,
+            mouse_y: 0,
+            scroll_delta: 0.0,
+        }
+    }
+
+    pub fn set_key_down(&mut self, vk_code: usize) {
+        if vk_code < 256 {
+            self.current_keys[vk_code] = true;
+        }
+    }
+
+    pub fn set_key_up(&mut self, vk_code: usize) {
+        if vk_code < 256 {
+            self.current_keys[vk_code] = false;
+        }
+    }
+
+    pub fn is_key_held(&self, vk_code: usize) -> bool {
+        self.current_keys[vk_code]
+    }
+
+    pub fn pressed(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
+        self.current_keys[vk_code] && !self.previous_keys[vk_code]
+    }
+
+    pub fn released(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
+        !self.current_keys[vk_code] && self.previous_keys[vk_code]
+    }
+
+    pub fn pressed_vk(&self, vk_code: usize) -> bool {
+        self.current_keys[vk_code] && !self.previous_keys[vk_code]
+    }
+
+    pub fn released_vk(&self, vk_code: usize) -> bool {
+        !self.current_keys[vk_code] && self.previous_keys[vk_code]
+    }
+
+    pub fn advance_frame(&mut self) {
+        self.previous_keys.copy_from_slice(&self.current_keys);
+        self.scroll_delta = 0.0;
+    }
+}

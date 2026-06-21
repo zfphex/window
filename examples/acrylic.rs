@@ -1,7 +1,7 @@
 use window::*;
 
 fn main() {
-    let window = create_window(
+    let mut window = create_window(
         "Window",
         0,
         0,
@@ -20,8 +20,7 @@ fn main() {
 
     loop {
         match window.event() {
-            Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
-            Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
+            Some(Event::Quit) => break,
             _ => {}
         }
 
