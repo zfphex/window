@@ -1,31 +1,36 @@
 use window::*;
 
 fn main() {
+    mini::defer_results!();
+    let mut window = create_window("Window", 0, 0, 800, 600, WindowStyle::DEFAULT);
+    unsafe { window.init_wgl_debug() };
+
     loop {
-        let gs = global_state();
-
-        if gs.left_mouse.clicked() {
-            println!("Clicked left mouse :)");
+        match window.event() {
+            Some(Event::Quit) => break,
+            Some(Event::Char(c)) => println!("{c}"),
+            _ => {}
         }
 
-        if gs.right_mouse.clicked() {
-            println!("Clicked right mouse :)");
+        if window.input.pressed(Key::Escape) {
+            return;
         }
 
-        if gs.middle_mouse.clicked() {
-            println!("Clicked middle mouse :)");
+        if window.input.scroll_delta > 0.0 {
+            println!("up");
+        } else if window.input.scroll_delta < 0.0 {
+            println!("down");
         }
 
-        if gs.mouse_4.clicked() {
-            println!("Clicked mouse 4 mouse :)");
+        if window.input.released(Key::Space) {
+            println!("up");
         }
 
-        if gs.mouse_5.clicked() {
-            println!("Clicked mouse 5 mouse :)");
+        if window.left_mouse.clicked(Rect::new(0, 0, 800, 600)) {
+            println!("Pressed");
         }
 
-        unsafe {
-            watch_global_mouse_events();
-        }
+        window.buffer.fill(0x4fa3a8);
+        window.draw();
     }
 }

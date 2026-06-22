@@ -1,8 +1,8 @@
 use window::*;
 
 fn main() {
-    let mut window = create_window("Window",  0, 0, 600, 400, WindowStyle::DEFAULT);
-    let mut window2 = create_window("Window2", 0, 0,  50, 50, WindowStyle::BORDERLESS);
+    let mut window = create_window("Window", 0, 0, 600, 400, WindowStyle::DEFAULT);
+    let mut window2 = create_window("Window2", 0, 0, 50, 50, WindowStyle::BORDERLESS);
     let mut point = POINT::default();
     unsafe { GetCursorPos(&mut point) };
     let width = window2.width();
@@ -20,8 +20,7 @@ fn main() {
         let _ = window2.event();
 
         match window.event() {
-            Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
-            Some(Event::Input(key, modifiers)) => println!("{:?} {:?}", key, modifiers),
+            Some(Event::Quit) => break,
             _ => {}
         }
 

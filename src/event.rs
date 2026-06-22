@@ -15,8 +15,13 @@ pub enum Modifier {
 pub enum Event {
     Quit,
     ///Mouse movement inside the window. (0, 0) is top left of window.
-    MouseMove(i32, i32),
-    Input(Key, Modifiers),
+    // MouseMove(i32, i32),
+    // Input(Key, Modifiers),
+    Char(char),
+    // KeyDown(usize),
+    // KeyUp(usize),
+    ScrollUp,
+    ScrollDown,
 }
 
 #[derive(Debug, PartialEq)]
@@ -35,8 +40,6 @@ pub enum Key {
     Down,
     Left,
     Right,
-    ScrollUp,
-    ScrollDown,
     LeftWindows,
     RightWindows,
     Menu,
@@ -52,8 +55,56 @@ pub enum Key {
 }
 
 impl Key {
-    pub const fn into(self, modifiers: Modifiers) -> Option<Event> {
-        Some(Event::Input(self, modifiers))
+    // pub const fn into(self, modifiers: Modifiers) -> Option<Event> {
+    //     Some(Event::Input(self, modifiers))
+    // }
+    pub const fn vk_code(&self) -> usize {
+        match *self {
+            Key::Enter => 0x0D,        // VK_RETURN
+            Key::Space => 0x20,        // VK_SPACE
+            Key::Backspace => 0x08,    // VK_BACK
+            Key::Escape => 0x1B,       // VK_ESCAPE
+            Key::Control => 0x11,      // VK_CONTROL
+            Key::Shift => 0x10,        // VK_SHIFT
+            Key::Alt => 0x12,          // VK_MENU
+            Key::Tab => 0x09,          // VK_TAB
+            Key::Up => 0x26,           // VK_UP
+            Key::Down => 0x28,         // VK_DOWN
+            Key::Left => 0x25,         // VK_LEFT
+            Key::Right => 0x27,        // VK_RIGHT
+            Key::LeftWindows => 0x5B,  // VK_LWIN
+            Key::RightWindows => 0x5C, // VK_RWIN
+            Key::Menu => 0x5D,         // VK_APPS
+            Key::ScrollLock => 0x91,   // VK_SCROLL
+            Key::PauseBreak => 0x13,   // VK_PAUSE
+            Key::Insert => 0x2D,       // VK_INSERT
+            Key::Home => 0x24,         // VK_HOME
+            Key::Delete => 0x2E,       // VK_DELETE
+            Key::End => 0x23,          // VK_END
+            Key::PageUp => 0x21,       // VK_PRIOR
+            Key::PageDown => 0x22,     // VK_NEXT
+            Key::Char(c) => {
+                let upper = c.to_ascii_uppercase();
+                match upper {
+                    'A'..='Z' | '0'..='9' => upper as usize,
+                    '=' | '+' => 0xBB,  // VK_OEM_PLUS
+                    '-' | '_' => 0xBD,  // VK_OEM_MINUS
+                    ';' | ':' => 0xBA,  // VK_OEM_1
+                    '/' | '?' => 0xBF,  // VK_OEM_2
+                    '`' | '~' => 0xC0,  // VK_OEM_3
+                    '[' | '{' => 0xDB,  // VK_OEM_4
+                    '\\' | '|' => 0xDC, // VK_OEM_5
+                    ']' | '}' => 0xDD,  // VK_OEM_6
+                    '\'' | '"' => 0xDE, // VK_OEM_7
+                    ',' | '<' => 0xBC,  // VK_OEM_COMMA
+                    '.' | '>' => 0xBE,  // VK_OEM_PERIOD
+                    _ => 0,             // Unmappable or unsupported char
+                }
+            }
+            Key::Function(n) if n >= 1 && n <= 24 => (0x6F + n) as usize,
+            Key::Function(_) => 0,
+            Key::Unknown(vk) => vk as usize,
+        }
     }
 }
 
@@ -75,118 +126,4 @@ pub fn modifiers() -> Modifiers {
             win: GetKeyState(VK_LWIN) & 0x80 > 0 || GetKeyState(VK_RWIN) & 0x80 > 0,
         }
     }
-}
-
-pub fn translate_message(msg: MSG, message_result: i32) -> Option<Event> {
-    let (mouse_x, mouse_y) = (msg.pt.x, msg.pt.y);
-    let modifiers = modifiers();
-
-    if message_result == 0 {
-        return None;
-    } else if message_result == -1 {
-        let last_error = unsafe { GetLastError() };
-        panic!("Error with `GetMessageA`, error code: {}", last_error);
-    }
-
-    let key = match msg.message {
-        WM_MOUSEWHEEL => {
-            const WHEEL_DELTA: i16 = 120;
-            let value = (msg.w_param >> 16) as i16;
-            let delta = value as f32 / WHEEL_DELTA as f32;
-            if delta >= 0.0 {
-                Key::ScrollUp
-            } else {
-                Key::ScrollDown
-            }
-        }
-        //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
-        WM_KEYDOWN => {
-            let vk = msg.w_param as i32;
-            let shift = modifiers.shift;
-
-            match vk {
-                VK_SPACE => Key::Space,
-                VK_ESCAPE => Key::Escape,
-                VK_TAB => Key::Tab,
-                VK_UP => Key::Up,
-                VK_DOWN => Key::Down,
-                VK_LEFT => Key::Left,
-                VK_RIGHT => Key::Right,
-                VK_LWIN => Key::LeftWindows,
-                VK_RETURN => Key::Enter,
-                VK_RWIN => Key::RightWindows,
-                VK_APPS => Key::Menu,
-                VK_SCROLL => Key::ScrollLock,
-                VK_PAUSE => Key::PauseBreak,
-                VK_INSERT => Key::Insert,
-                VK_HOME => Key::Home,
-                VK_END => Key::End,
-                VK_PRIOR => Key::PageUp,
-                VK_NEXT => Key::PageDown,
-                VK_DELETE => Key::Delete,
-                //Some keyboards don't report left and right control/shift independently.
-                //So there's no way to specifiy which one.
-                VK_SHIFT | VK_LSHIFT | VK_RSHIFT => Key::Shift,
-                VK_CONTROL | VK_LCONTROL | VK_RCONTROL => Key::Control,
-                VK_F1..=VK_F24 => Key::Function((vk - VK_F1 as i32 + 1) as u8),
-                VK_OEM_PLUS if shift => Key::Char('+'),
-                VK_OEM_PLUS => Key::Char('='),
-                VK_OEM_MINUS if shift => Key::Char('_'),
-                VK_OEM_MINUS => Key::Char('-'),
-                VK_OEM_1 if shift => Key::Char(':'),
-                VK_OEM_1 => Key::Char(';'),
-                VK_OEM_2 if shift => Key::Char('?'),
-                VK_OEM_2 => Key::Char('/'),
-                VK_OEM_3 if shift => Key::Char('~'),
-                VK_OEM_3 => Key::Char('`'),
-                VK_OEM_4 if shift => Key::Char('{'),
-                VK_OEM_4 => Key::Char('['),
-                VK_OEM_5 if shift => Key::Char('|'),
-                VK_OEM_5 => Key::Char('\\'),
-                VK_OEM_6 if shift => Key::Char('}'),
-                VK_OEM_6 => Key::Char(']'),
-                VK_OEM_7 if shift => Key::Char('"'),
-                VK_OEM_7 => Key::Char('\''),
-                VK_OEM_COMMA if shift => Key::Char('<'),
-                VK_OEM_COMMA => Key::Char(','),
-                VK_OEM_PERIOD if shift => Key::Char('>'),
-                VK_OEM_PERIOD => Key::Char('.'),
-                //(A-Z,modifiers) (0-9,modifiers)
-                0x30..=0x39 | 0x41..=0x5A => {
-                    let vk = vk as u8 as char;
-                    if shift {
-                        Key::Char(match vk {
-                            '1' => '!',
-                            '2' => '@',
-                            '3' => '#',
-                            '4' => '$',
-                            '5' => '%',
-                            '6' => '^',
-                            '7' => '&',
-                            '8' => '*',
-                            '9' => '(',
-                            '0' => ')',
-                            _ => vk,
-                        })
-                    } else {
-                        //I think all alphabetical inputs are UPPERCASE.
-                        Key::Char(vk.to_ascii_lowercase())
-                    }
-                }
-                _ => Key::Unknown(vk as u16),
-            }
-        }
-        WM_MOUSEMOVE => {
-            unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
-            let mx = (msg.l_param & 0xFFFF) as i16 as i32;
-            let my = ((msg.l_param >> 16) & 0xFFFF) as i16 as i32;
-            return Some(Event::MouseMove(mx, my));
-        }
-        _ => {
-            unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
-            return None;
-        }
-    };
-
-    Some(Event::Input(key, modifiers))
 }

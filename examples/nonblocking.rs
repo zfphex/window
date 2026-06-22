@@ -88,8 +88,7 @@ fn main() {
 
     loop {
         match window.event() {
-            Some(Event::Quit | Event::Input(Key::Escape, _)) => break,
-            Some(Event::Input(key, _)) => println!("{:?}", key),
+            Some(Event::Quit) => break,
             _ => {}
         }
 

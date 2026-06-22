@@ -13,7 +13,7 @@ pub enum MouseButton {
 pub struct MouseButtonState {
     pub pressed: bool,
     pub released: bool,
-    pub inital_position: Option<Rect>,
+    pub initial_position: Option<Rect>,
     pub release_position: Option<Rect>,
 }
 
@@ -22,12 +22,12 @@ impl MouseButtonState {
         Self {
             pressed: false,
             released: false,
-            inital_position: None,
+            initial_position: None,
             release_position: None,
         }
     }
 
-    pub const fn is_pressed(&mut self) -> bool {
+    pub fn is_pressed(&mut self) -> bool {
         if self.pressed {
             self.pressed = false;
             true
@@ -36,7 +36,7 @@ impl MouseButtonState {
         }
     }
 
-    pub const fn is_released(&mut self) -> bool {
+    pub fn is_released(&mut self) -> bool {
         if self.released {
             self.released = false;
             true
@@ -46,7 +46,13 @@ impl MouseButtonState {
     }
 
     pub fn clicked(&mut self, area: Rect) -> bool {
-        let Some(inital) = self.inital_position else {
+        if !self.released {
+            return false;
+        }
+
+        self.released = false;
+
+        let Some(initial) = self.initial_position else {
             return false;
         };
 
@@ -54,24 +60,79 @@ impl MouseButtonState {
             return false;
         };
 
-        //Make sure the user clicked and released the mouse on top of the desired area.
-        if self.released && inital.intersects(area) && release.intersects(area) {
-            self.released = false;
-            true
-        } else {
-            false
-        }
+        initial.intersects(area) && release.intersects(area)
     }
 
     pub(crate) fn pressed(&mut self, pos: Rect) {
         self.pressed = true;
         self.released = false;
-        self.inital_position = Some(pos);
+        self.initial_position = Some(pos);
     }
 
     pub(crate) fn released(&mut self, pos: Rect) {
         self.pressed = false;
         self.released = true;
         self.release_position = Some(pos);
+    }
+}
+
+#[derive(Debug)]
+pub struct InputState {
+    pub current_keys: [bool; 256],
+    pub previous_keys: [bool; 256],
+    pub mouse_x: i32,
+    pub mouse_y: i32,
+    pub scroll_delta: f32,
+}
+
+impl InputState {
+    pub const fn new() -> Self {
+        Self {
+            current_keys: [false; 256],
+            previous_keys: [false; 256],
+            mouse_x: 0,
+            mouse_y: 0,
+            scroll_delta: 0.0,
+        }
+    }
+
+    pub fn set_key_down(&mut self, vk_code: usize) {
+        if vk_code < 256 {
+            self.current_keys[vk_code] = true;
+        }
+    }
+
+    pub fn set_key_up(&mut self, vk_code: usize) {
+        if vk_code < 256 {
+            self.current_keys[vk_code] = false;
+        }
+    }
+
+    pub fn is_down(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
+        self.current_keys[vk_code]
+    }
+
+    pub fn pressed(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
+        self.current_keys[vk_code] && !self.previous_keys[vk_code]
+    }
+
+    pub fn released(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
+        !self.current_keys[vk_code] && self.previous_keys[vk_code]
+    }
+
+    pub fn pressed_vk(&self, vk_code: usize) -> bool {
+        self.current_keys[vk_code] && !self.previous_keys[vk_code]
+    }
+
+    pub fn released_vk(&self, vk_code: usize) -> bool {
+        !self.current_keys[vk_code] && self.previous_keys[vk_code]
+    }
+
+    pub fn advance_frame(&mut self) {
+        self.previous_keys.copy_from_slice(&self.current_keys);
+        self.scroll_delta = 0.0;
     }
 }

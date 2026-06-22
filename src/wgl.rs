@@ -7,15 +7,3 @@ extern "system" {
     pub fn wglDeleteContext(hglrc: HGLRC) -> i32;
     pub fn wglGetProcAddress(name: *const i8) -> *const c_void;
 }
-
-// #[derive(Debug, Default)]
-// pub struct WglContext {
-//     pub hglrc: HGLRC,
-// }
-
-// impl WglContext {
-//     #[inline]
-//     pub const fn is_valid(&self) -> bool {
-//         !self.hglrc.is_null()
-//     }
-// }
