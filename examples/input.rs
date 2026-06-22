@@ -1,10 +1,12 @@
 use window::*;
 
 fn main() {
+    mini::defer_results!();
     let mut window = create_window("Window", 0, 0, 800, 600, WindowStyle::DEFAULT);
+    unsafe { window.init_wgl_debug() };
 
     loop {
-        match window.sink_events() {
+        match window.event() {
             Some(Event::Quit) => break,
             Some(Event::Char(c)) => println!("{c}"),
             _ => {}
@@ -23,9 +25,10 @@ fn main() {
         if window.input.released(Key::Space) {
             println!("up");
         }
-        // if input.is_key_held(VK_SPACE as usize) {
-        //     println!("up");
-        // }
+
+        if window.left_mouse.clicked(Rect::new(0, 0, 800, 600)) {
+            println!("Pressed");
+        }
 
         window.buffer.fill(0x4fa3a8);
         window.draw();

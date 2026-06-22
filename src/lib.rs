@@ -14,7 +14,6 @@ mod acrylic;
 mod clipboard;
 mod constants;
 mod dark_theme;
-mod debug;
 mod dwm;
 mod event;
 mod fps;
@@ -30,7 +29,6 @@ pub use acrylic::*;
 pub use clipboard::*;
 pub use constants::*;
 pub use dark_theme::*;
-pub use debug::*;
 pub use dwm::*;
 pub use event::*;
 pub use fps::*;
@@ -161,6 +159,8 @@ extern "system" {
 
     pub fn GetDpiForWindow(hwnd: isize) -> u32;
     pub fn ReleaseCapture() -> i32;
+    pub fn SetCursorPos(X: i32, Y: i32) -> i32;
+    pub fn ShowCursor(bShow: i32) -> i32;
     pub fn SetCapture(hwnd: isize) -> isize;
     pub fn LoadIconA(hInstance: *mut c_void, lpIconName: *const i8) -> *mut c_void;
     pub fn SetWindowTextA(hwnd: isize, lpString: *const u8) -> i32;

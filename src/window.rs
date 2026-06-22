@@ -201,7 +201,68 @@ impl Window {
         }
     }
 
-    pub fn init_wgl(&mut self) {
+    /// Safety: Mutiple calls to this is unsafe.
+    pub unsafe fn init_wgl_debug(&mut self) {
+        mini::profile!();
+        pub const WGL_CONTEXT_MAJOR_VERSION_ARB: i32 = 0x2091;
+        pub const WGL_CONTEXT_MINOR_VERSION_ARB: i32 = 0x2092;
+        pub const WGL_CONTEXT_FLAGS_ARB: i32 = 0x2094;
+        pub const WGL_CONTEXT_PROFILE_MASK_ARB: i32 = 0x9126;
+
+        pub const WGL_CONTEXT_DEBUG_BIT_ARB: i32 = 0x0001;
+        pub const WGL_CONTEXT_CORE_PROFILE_BIT_ARB: i32 = 0x00000001;
+
+        unsafe {
+            let mut pfd = PIXELFORMATDESCRIPTOR::default();
+            pfd.nSize = core::mem::size_of::<PIXELFORMATDESCRIPTOR>() as WORD;
+            pfd.nVersion = 1;
+            pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+            pfd.iPixelType = PFD_TYPE_RGBA;
+            pfd.cColorBits = 32;
+            pfd.cDepthBits = 24;
+            pfd.cStencilBits = 8;
+            pfd.iLayerType = PFD_MAIN_PLANE;
+
+            let pixel_format = ChoosePixelFormat(self.dc, &pfd);
+            assert!(pixel_format > 0);
+            assert!(SetPixelFormat(self.dc, pixel_format, &pfd) != 0);
+
+            let dummy_hglrc = wglCreateContext(self.dc);
+            assert!(!dummy_hglrc.is_null());
+            assert!(wglMakeCurrent(self.dc, dummy_hglrc) != 0,);
+
+            let ptr = wglGetProcAddress(b"wglCreateContextAttribsARB\0".as_ptr() as *const i8);
+            assert!(!ptr.is_null());
+
+            let wgl_create_context_attribs_arb: unsafe extern "system" fn(
+                *mut c_void,
+                *mut c_void,
+                *const i32,
+            )
+                -> *mut c_void = { core::mem::transmute(ptr) };
+
+            let attribs = [
+                WGL_CONTEXT_MAJOR_VERSION_ARB,
+                4,
+                WGL_CONTEXT_MINOR_VERSION_ARB,
+                6,
+                WGL_CONTEXT_PROFILE_MASK_ARB,
+                WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+                WGL_CONTEXT_FLAGS_ARB,
+                WGL_CONTEXT_DEBUG_BIT_ARB,
+                0,
+            ];
+
+            let hglrc = wgl_create_context_attribs_arb(self.dc, null_mut(), attribs.as_ptr());
+            assert!(!hglrc.is_null(), "wglCreateContextAttribsARB failed");
+
+            assert!(wglMakeCurrent(self.dc, hglrc) != 0);
+            self.hglrc = hglrc;
+        }
+    }
+
+    pub unsafe fn init_wgl(&mut self) {
+        mini::profile!();
         unsafe {
             let mut pfd = PIXELFORMATDESCRIPTOR::default();
             pfd.nSize = core::mem::size_of::<PIXELFORMATDESCRIPTOR>() as WORD;
@@ -229,13 +290,10 @@ impl Window {
     }
 
     pub fn set_swap_interval(&self, interval: i32) {
-        let name_c = std::ffi::CString::new("wglSwapIntervalEXT").unwrap();
-        let ptr = unsafe { wglGetProcAddress(name_c.as_ptr()) };
+        let ptr = unsafe { wglGetProcAddress("wglSwapIntervalEXT\0".as_ptr() as *const _) };
         assert!(!ptr.is_null());
-        unsafe {
-            let func: unsafe extern "system" fn(i32) -> i32 = core::mem::transmute(ptr);
-            func(interval);
-        }
+        let func: unsafe extern "system" fn(i32) -> i32 = unsafe { core::mem::transmute(ptr) };
+        unsafe { func(interval) };
     }
 
     pub fn swap_buffers(&self) {
@@ -269,32 +327,32 @@ impl Window {
             )
         };
     }
+
     pub const fn display_scale(&self) -> f32 {
         self.display_scale
     }
+
     pub fn set_title(&self, title: &str) {
         let title_c = std::ffi::CString::new(title).unwrap();
         unsafe {
             SetWindowTextA(self.hwnd, title_c.as_ptr() as *const u8);
         }
     }
-    #[inline]
+
     pub fn client_area(&self) -> Rect {
         let mut rect = RECT::default();
         let _ = unsafe { GetClientRect(self.hwnd, &mut rect) };
         Rect::from_windows(rect)
     }
-    #[inline(always)]
+
     pub const fn width(&self) -> usize {
         self.area.width
     }
-    #[inline(always)]
+
     pub const fn height(&self) -> usize {
         self.area.height
     }
-    pub const fn focused(&self) -> bool {
-        self.focused
-    }
+
     pub fn borderless(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::BORDERLESS.style as isize);
@@ -311,6 +369,7 @@ impl Window {
             );
         };
     }
+
     pub fn set_pos(&mut self, x: usize, y: usize, width: usize, height: usize, flags: u32) {
         unsafe {
             SetWindowPos(
@@ -324,6 +383,7 @@ impl Window {
             );
         }
     }
+
     pub fn reset_style(&mut self) {
         unsafe {
             SetWindowLongPtrA(self.hwnd, GWL_STYLE, WindowStyle::DEFAULT.style as isize);
@@ -342,9 +402,6 @@ impl Window {
     }
 
     pub fn translate_message(&mut self, msg: MSG, message_result: i32) -> Option<Event> {
-        let (mouse_x, mouse_y) = (msg.pt.x, msg.pt.y);
-        let modifiers = modifiers();
-
         if message_result == 0 {
             return None;
         } else if message_result == -1 {
@@ -353,19 +410,6 @@ impl Window {
         }
 
         match msg.message {
-            // WM_MOUSEWHEEL => {
-            //     const WHEEL_DELTA: i16 = 120;
-            //     let value = (msg.w_param >> 16) as i16;
-            //     let delta = value as f32 / WHEEL_DELTA as f32;
-            //     self.input.scroll_delta = delta;
-            // }
-            //https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
-            // WM_KEYDOWN | WM_SYSKEYDOWN => {
-            //     self.input.set_key_down(msg.w_param as usize);
-            // }
-            // WM_KEYUP | WM_SYSKEYUP => {
-            //     self.input.set_key_up(msg.w_param as usize);
-            // }
             WM_CHAR => {
                 if let Some(c) = char::from_u32(msg.w_param as u32) {
                     if !c.is_control() {
@@ -373,15 +417,6 @@ impl Window {
                     }
                 }
             }
-            // WM_MOUSEMOVE => {
-            // unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
-            // let mx = (msg.l_param & 0xFFFF) as i16 as i32;
-            // let my = ((msg.l_param >> 16) & 0xFFFF) as i16 as i32;
-            // self.mouse_position = Rect::new(mx, my, 1, 1);
-            // self.input.mouse_x = mx;
-            // self.input.mouse_y = my;
-            // return Some(Event::MouseMove(mx, my));
-            // }
             _ => {
                 unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
             }
@@ -391,28 +426,6 @@ impl Window {
     }
 
     pub fn event(&mut self) -> Option<Event> {
-        if self.quit {
-            return Some(Event::Quit);
-        }
-
-        unsafe {
-            let mut msg = MSG::new();
-            let result = PeekMessageA(&mut msg, self.hwnd, 0, 0, PM_REMOVE);
-            self.translate_message(msg, result)
-        }
-    }
-    pub fn event_blocking(&mut self) -> Option<Event> {
-        if self.quit {
-            return Some(Event::Quit);
-        }
-
-        unsafe {
-            let mut msg = MSG::new();
-            let result = GetMessageA(&mut msg, self.hwnd, 0, 0);
-            self.translate_message(msg, result)
-        }
-    }
-    pub fn sink_events(&mut self) -> Option<Event> {
         if self.needs_frame_advance {
             self.input.advance_frame();
             self.needs_frame_advance = false;
@@ -439,18 +452,12 @@ impl Window {
         self.needs_frame_advance = true;
         None
     }
+
     pub fn vsync(&self) {
         unsafe { DwmFlush() };
     }
-    //TODO: There is no support for depth.
-    pub fn draw(&mut self) {
-        // Not sure how to handle resets.
-        // self.left_mouse.reset();
-        // self.right_mouse.reset();
-        // self.middle_mouse.reset();
-        // self.mouse_4.reset();
-        // self.mouse_5.reset();
 
+    pub fn draw(&mut self) {
         unsafe {
             StretchDIBits(
                 self.dc,

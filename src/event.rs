@@ -15,7 +15,7 @@ pub enum Modifier {
 pub enum Event {
     Quit,
     ///Mouse movement inside the window. (0, 0) is top left of window.
-    MouseMove(i32, i32),
+    // MouseMove(i32, i32),
     // Input(Key, Modifiers),
     Char(char),
     // KeyDown(usize),

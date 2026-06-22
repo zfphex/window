@@ -13,7 +13,7 @@ pub enum MouseButton {
 pub struct MouseButtonState {
     pub pressed: bool,
     pub released: bool,
-    pub inital_position: Option<Rect>,
+    pub initial_position: Option<Rect>,
     pub release_position: Option<Rect>,
 }
 
@@ -22,12 +22,12 @@ impl MouseButtonState {
         Self {
             pressed: false,
             released: false,
-            inital_position: None,
+            initial_position: None,
             release_position: None,
         }
     }
 
-    pub const fn is_pressed(&mut self) -> bool {
+    pub fn is_pressed(&mut self) -> bool {
         if self.pressed {
             self.pressed = false;
             true
@@ -36,7 +36,7 @@ impl MouseButtonState {
         }
     }
 
-    pub const fn is_released(&mut self) -> bool {
+    pub fn is_released(&mut self) -> bool {
         if self.released {
             self.released = false;
             true
@@ -46,7 +46,13 @@ impl MouseButtonState {
     }
 
     pub fn clicked(&mut self, area: Rect) -> bool {
-        let Some(inital) = self.inital_position else {
+        if !self.released {
+            return false;
+        }
+
+        self.released = false;
+
+        let Some(initial) = self.initial_position else {
             return false;
         };
 
@@ -54,19 +60,13 @@ impl MouseButtonState {
             return false;
         };
 
-        //Make sure the user clicked and released the mouse on top of the desired area.
-        if self.released && inital.intersects(area) && release.intersects(area) {
-            self.released = false;
-            true
-        } else {
-            false
-        }
+        initial.intersects(area) && release.intersects(area)
     }
 
     pub(crate) fn pressed(&mut self, pos: Rect) {
         self.pressed = true;
         self.released = false;
-        self.inital_position = Some(pos);
+        self.initial_position = Some(pos);
     }
 
     pub(crate) fn released(&mut self, pos: Rect) {
@@ -108,7 +108,8 @@ impl InputState {
         }
     }
 
-    pub fn is_key_held(&self, vk_code: usize) -> bool {
+    pub fn is_down(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
         self.current_keys[vk_code]
     }
 

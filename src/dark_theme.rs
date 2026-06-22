@@ -32,7 +32,8 @@ pub unsafe fn set_dark_theme(hwnd: isize) {
 
     //Check if this version of windows supports `SetWindowCompositionAttribute`.
     if v.dw_build_number < 17763 || status < 0 {
-        panic!("Window version must be 1809 or above.");
+        // panic!("Window version must be 1809 or above.");
+        return;
     }
 
     let user32 = unsafe { LoadLibraryA("user32.dll\0".as_ptr() as *const i8) };
