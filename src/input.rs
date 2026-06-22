@@ -96,21 +96,14 @@ impl InputState {
         }
     }
 
-    pub fn set_key_down(&mut self, vk_code: usize) {
-        if vk_code < 256 {
-            self.current_keys[vk_code] = true;
-        }
-    }
-
-    pub fn set_key_up(&mut self, vk_code: usize) {
-        if vk_code < 256 {
-            self.current_keys[vk_code] = false;
-        }
-    }
-
     pub fn is_down(&self, key: Key) -> bool {
         let vk_code = key.vk_code();
         self.current_keys[vk_code]
+    }
+
+    pub fn is_up(&self, key: Key) -> bool {
+        let vk_code = key.vk_code();
+        !self.current_keys[vk_code]
     }
 
     pub fn pressed(&self, key: Key) -> bool {
@@ -123,16 +116,20 @@ impl InputState {
         !self.current_keys[vk_code] && self.previous_keys[vk_code]
     }
 
-    pub fn pressed_vk(&self, vk_code: usize) -> bool {
-        self.current_keys[vk_code] && !self.previous_keys[vk_code]
-    }
-
-    pub fn released_vk(&self, vk_code: usize) -> bool {
-        !self.current_keys[vk_code] && self.previous_keys[vk_code]
-    }
-
     pub fn advance_frame(&mut self) {
         self.previous_keys.copy_from_slice(&self.current_keys);
         self.scroll_delta = 0.0;
+    }
+
+    pub(crate) fn set_key_down(&mut self, vk_code: usize) {
+        if vk_code < 256 {
+            self.current_keys[vk_code] = true;
+        }
+    }
+
+    pub(crate) fn set_key_up(&mut self, vk_code: usize) {
+        if vk_code < 256 {
+            self.current_keys[vk_code] = false;
+        }
     }
 }
