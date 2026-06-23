@@ -370,6 +370,25 @@ impl Window {
         };
     }
 
+    pub fn fullscreen(&mut self) {
+        unsafe {
+            let monitor = MonitorFromWindow(self.hwnd, MONITOR_DEFAULTTOPRIMARY);
+            let mut monitor_info: MONITORINFO = std::mem::zeroed();
+            monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+            assert!(GetMonitorInfoA(monitor, &mut monitor_info) != 0);
+
+            let style = WindowStyle::BORDERLESS.style | WS_MAXIMIZE;
+            SetWindowLongPtrA(self.hwnd, GWL_STYLE, style as isize);
+
+            let x = monitor_info.rcMonitor.left;
+            let y = monitor_info.rcMonitor.top;
+            let width = monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+            let height = monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+
+            SetWindowPos(self.hwnd, 0, x, y, width, height, SWP_FRAMECHANGED);
+        };
+    }
+
     pub fn set_pos(&mut self, x: usize, y: usize, width: usize, height: usize, flags: u32) {
         unsafe {
             SetWindowPos(

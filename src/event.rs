@@ -24,7 +24,7 @@ pub enum Event {
     ScrollDown,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Key {
     Char(char),
     Function(u8),
