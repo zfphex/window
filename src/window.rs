@@ -289,7 +289,7 @@ impl Window {
         unsafe { wglGetProcAddress(std::ffi::CString::new(name).unwrap().as_ptr()) }
     }
 
-    pub fn set_swap_interval(&self, interval: i32) {
+    pub unsafe fn set_swap_interval(&self, interval: i32) {
         let ptr = unsafe { wglGetProcAddress("wglSwapIntervalEXT\0".as_ptr() as *const _) };
         assert!(!ptr.is_null());
         let func: unsafe extern "system" fn(i32) -> i32 = unsafe { core::mem::transmute(ptr) };
