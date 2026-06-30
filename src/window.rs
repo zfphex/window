@@ -441,9 +441,7 @@ impl Window {
                     }
                 }
             }
-            _ => {
-                unsafe { wnd_proc(msg.hwnd, msg.message, msg.w_param, msg.l_param) };
-            }
+            _ => {}
         };
 
         return None;
@@ -610,6 +608,8 @@ pub unsafe extern "system" fn wnd_proc(
     let low = (lparam & 0xffff) as usize;
     let high = ((lparam >> 16) & 0xffff) as usize;
 
+    // println!("{}", wm_code_name(msg));
+
     match msg {
         //We can choose not to destroy the window, for example with a save prompt.
         WM_CLOSE => {
@@ -617,20 +617,13 @@ pub unsafe extern "system" fn wnd_proc(
             return 0;
         }
         WM_DESTROY => {
-            // TOOD: Cleanup WGL context, currently this is really slow, so just let windows do it.
-            // if !window.hglrc.is_null() {
-            //     wglMakeCurrent(null_mut(), null_mut());
-            //     wglDeleteContext(window.hglrc);
-            // }
-
             PostQuitMessage(0);
             window.quit = true;
             window.event_queue.push_back(Event::Quit);
             return 0;
         }
-        //TODO: Could add a feature flag to skip this for no GDI use.
-        //Do it in the UI library for now?
         WM_SIZE => {
+            //TODO: How to skip this for no GDI use.
             let (width, height) = (low, high);
             window.buffer.clear();
             window.buffer.resize(width * height, 0);
@@ -641,7 +634,6 @@ pub unsafe extern "system" fn wnd_proc(
         }
         WM_SIZING | WM_PAINT => {
             invoke_render_callback(window);
-            return DefWindowProcA(hwnd, msg, wparam, lparam);
         }
         //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged
         WM_DPICHANGED => {
@@ -700,55 +692,47 @@ pub unsafe extern "system" fn wnd_proc(
             window.input.set_key_up(wparam);
             return 0;
         }
-        WM_LBUTTONDOWN => {
+        WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN => {
             SetCapture(hwnd);
-            window.left_mouse.pressed(Rect::new(low, high, 1, 1));
-            return 0;
-        }
-        WM_LBUTTONUP => {
-            ReleaseCapture();
-            window.left_mouse.released(Rect::new(low, high, 1, 1));
-            return 0;
-        }
-        WM_RBUTTONDOWN => {
-            SetCapture(hwnd);
-            window.right_mouse.pressed(Rect::new(low, high, 1, 1));
-            return 0;
-        }
-        WM_RBUTTONUP => {
-            ReleaseCapture();
-            window.right_mouse.released(Rect::new(low, high, 1, 1));
-            return 0;
-        }
-        WM_MBUTTONDOWN => {
-            SetCapture(hwnd);
-            window.middle_mouse.pressed(Rect::new(low, high, 1, 1));
-            return 0;
-        }
-        WM_MBUTTONUP => {
-            ReleaseCapture();
-            window.middle_mouse.released(Rect::new(low, high, 1, 1));
-            return 0;
-        }
-        WM_XBUTTONDOWN => {
-            SetCapture(hwnd);
-            let button = ((wparam >> 16) & 0xffff) as usize;
-            if button == 1 {
-                window.mouse_4.pressed(Rect::new(low, high, 1, 1));
-            } else if button == 2 {
-                window.mouse_5.pressed(Rect::new(low, high, 1, 1));
+            let rect = Rect::new(low, high, 1, 1);
+            match msg {
+                WM_LBUTTONDOWN => window.left_mouse.pressed(rect),
+                WM_RBUTTONDOWN => window.right_mouse.pressed(rect),
+                WM_MBUTTONDOWN => window.middle_mouse.pressed(rect),
+                WM_XBUTTONDOWN => {
+                    let button = ((wparam >> 16) & 0xffff) as usize;
+                    if button == 1 {
+                        window.mouse_4.pressed(rect);
+                    } else if button == 2 {
+                        window.mouse_5.pressed(rect);
+                    }
+                }
+                _ => {}
             }
-            return 0;
         }
-        WM_XBUTTONUP => {
-            ReleaseCapture();
-            let button = ((wparam >> 16) & 0xffff) as usize;
-            if button == 1 {
-                window.mouse_4.released(Rect::new(low, high, 1, 1));
-            } else if button == 2 {
-                window.mouse_5.released(Rect::new(low, high, 1, 1));
+        WM_LBUTTONUP | WM_RBUTTONUP | WM_MBUTTONUP | WM_XBUTTONUP => {
+            // Only release capture if no other mouse buttons are currently being held down.
+            if wparam as u32 & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2)
+                == 0
+            {
+                ReleaseCapture();
             }
-            return 0;
+
+            let rect = Rect::new(low, high, 1, 1);
+            match msg {
+                WM_LBUTTONUP => window.left_mouse.released(rect),
+                WM_RBUTTONUP => window.right_mouse.released(rect),
+                WM_MBUTTONUP => window.middle_mouse.released(rect),
+                WM_XBUTTONUP => {
+                    let button = ((wparam >> 16) & 0xffff) as usize;
+                    if button == 1 {
+                        window.mouse_4.released(rect);
+                    } else if button == 2 {
+                        window.mouse_5.released(rect);
+                    }
+                }
+                _ => {}
+            }
         }
         WM_KILLFOCUS => {
             window.focused = false;
@@ -763,12 +747,8 @@ pub unsafe extern "system" fn wnd_proc(
             window.tray.pressed(Rect::default());
             return 0;
         }
-        // WM_TRAYICON => {
-        //     dbg!(low);
-        //     return 0;
-        // }
-        _ => {
-            return DefWindowProcA(hwnd, msg, wparam, lparam);
-        }
+        _ => {}
     }
+
+    DefWindowProcA(hwnd, msg, wparam, lparam)
 }

@@ -3,7 +3,7 @@ use window::*;
 fn main() {
     mini::defer_results!();
     let mut window = create_window("Window", 0, 0, 800, 600, WindowStyle::DEFAULT);
-    unsafe { window.init_wgl_debug() };
+    // unsafe { window.init_wgl_debug() };
 
     loop {
         match window.event() {
