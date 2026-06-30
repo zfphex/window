@@ -10,7 +10,6 @@ use core::{
     ptr::{null, null_mut},
 };
 
-mod acrylic;
 mod clipboard;
 mod constants;
 mod dark_theme;
@@ -25,7 +24,6 @@ mod tray;
 mod wgl;
 mod window;
 
-pub use acrylic::*;
 pub use clipboard::*;
 pub use constants::*;
 pub use dark_theme::*;
