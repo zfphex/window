@@ -30,7 +30,8 @@ fn main() {
             println!("Pressed");
         }
 
-        window.buffer.fill(0x4fa3a8);
-        window.draw();
+        window.draw(|w| {
+            w.buffer.fill(0x4fa3a8);
+        });
     }
 }

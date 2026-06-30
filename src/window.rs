@@ -1,4 +1,5 @@
 use crate::*;
+use std::collections::VecDeque;
 pub const DEFAULT_DPI: f32 = 96.0;
 
 pub fn create_window(
@@ -107,15 +108,13 @@ pub fn create_window(
             hglrc: null_mut(),
             focused: true,
             needs_frame_advance: false,
+            render_callback: core::ptr::null_mut(),
+            render_executor: None,
+            event_queue: VecDeque::new(),
         };
 
         //Safety: This *should* be pinned.
         let window = Box::pin(window);
-
-        // Initialize WGL context after pinning to ensure stable address
-        // This is slow !!!
-        // window.init_wgl();
-
         let addr = &*window as *const Window;
         let result = SetWindowLongPtrW(window.hwnd, GWLP_USERDATA, addr as isize);
         assert!(result <= 0);
@@ -145,6 +144,9 @@ pub struct Window {
     pub hglrc: HGLRC,
     pub focused: bool,
     needs_frame_advance: bool,
+    pub render_callback: *mut core::ffi::c_void,
+    pub render_executor: Option<unsafe fn(*mut core::ffi::c_void, &mut Window)>,
+    pub event_queue: VecDeque<Event>,
 }
 
 impl Window {
@@ -198,6 +200,9 @@ impl Window {
             hglrc: unsafe { core::mem::zeroed() },
             focused: false,
             needs_frame_advance: false,
+            render_callback: core::ptr::null_mut(),
+            render_executor: None,
+            event_queue: VecDeque::new(),
         }
     }
 
@@ -449,34 +454,51 @@ impl Window {
             self.input.advance_frame();
             self.needs_frame_advance = false;
         }
-
+        if let Some(event) = self.event_queue.pop_front() {
+            return Some(event);
+        }
         if self.quit {
             return Some(Event::Quit);
         }
+        None
+    }
+
+    pub fn draw<F>(&mut self, mut render: F)
+    where
+        F: FnMut(&mut Self),
+    {
+        render(self);
+        //TODO: Skip this for WGL.
+        self.present();
+
+        unsafe fn execute_render<F>(closure_ptr: *mut c_void, window: &mut Window)
+        where
+            F: FnMut(&mut Window),
+        {
+            let closure = &mut *(closure_ptr as *mut F);
+            closure(window);
+        }
+
+        self.render_callback = &mut render as *mut F as *mut c_void;
+        self.render_executor = Some(execute_render::<F>);
 
         unsafe {
             let mut msg = MSG::default();
-
-            let mut result = 1;
-            while result != 0 {
-                result = PeekMessageA(&mut msg, self.hwnd, 0, 0, PM_REMOVE);
+            while PeekMessageA(&mut msg, self.hwnd, 0, 0, PM_REMOVE) != 0 {
                 TranslateMessage(&msg);
                 DispatchMessageA(&msg);
-                if let Some(event) = self.translate_message(msg.clone(), result) {
-                    return Some(event);
+                if let Some(event) = self.translate_message(msg.clone(), 1) {
+                    self.event_queue.push_back(event);
                 }
             }
         }
 
+        self.render_callback = core::ptr::null_mut();
+        self.render_executor = None;
         self.needs_frame_advance = true;
-        None
     }
 
-    pub fn vsync(&self) {
-        unsafe { DwmFlush() };
-    }
-
-    pub fn draw(&mut self) {
+    pub fn present(&mut self) {
         unsafe {
             StretchDIBits(
                 self.dc,
@@ -494,6 +516,10 @@ impl Window {
                 SRCCOPY,
             );
         }
+    }
+
+    pub fn vsync(&self) {
+        unsafe { DwmFlush() };
     }
 }
 
@@ -533,6 +559,29 @@ impl Default for WindowStyle {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+fn invoke_render_callback(window: &mut Window) {
+    if window.render_callback.is_null() || window.render_executor.is_none() {
+        return;
+    }
+
+    let cb_ptr = window.render_callback;
+    let executor = window.render_executor;
+
+    window.render_callback = core::ptr::null_mut();
+    window.render_executor = None;
+
+    if let Some(exec) = executor {
+        unsafe { exec(cb_ptr, window) };
+    }
+
+    //TODO: Will need to support WGL use cases here too.
+    window.present();
+
+    // Restore the callback pointer
+    window.render_callback = cb_ptr;
+    window.render_executor = executor;
 }
 
 pub unsafe extern "system" fn wnd_proc(
@@ -576,6 +625,7 @@ pub unsafe extern "system" fn wnd_proc(
 
             PostQuitMessage(0);
             window.quit = true;
+            window.event_queue.push_back(Event::Quit);
             return 0;
         }
         //TODO: Could add a feature flag to skip this for no GDI use.
@@ -586,8 +636,12 @@ pub unsafe extern "system" fn wnd_proc(
             window.buffer.resize(width * height, 0);
             window.bitmap = BITMAPINFO::new(width as i32, height as i32);
             window.area = Rect::new(0, 0, width, height);
-
+            invoke_render_callback(window);
             return 0;
+        }
+        WM_SIZING | WM_PAINT => {
+            invoke_render_callback(window);
+            return DefWindowProcA(hwnd, msg, wparam, lparam);
         }
         //https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged
         WM_DPICHANGED => {

@@ -24,10 +24,12 @@ fn main() {
             _ => {}
         }
 
-        window.buffer.fill(0x4fa3a8);
-        window.draw();
+        window.draw(|w| {
+            w.buffer.fill(0x4fa3a8);
+        });
 
-        window2.buffer.fill(0x165d6a);
-        window2.draw();
+        window2.draw(|w| {
+            w.buffer.fill(0x165d6a);
+        });
     }
 }
