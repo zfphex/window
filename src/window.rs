@@ -675,7 +675,6 @@ pub unsafe extern "system" fn wnd_proc(
         }
         WM_MOUSEMOVE => {
             window.mouse_position = Rect::new(mx, my, 1, 1);
-            return 0;
         }
         WM_MOUSEWHEEL => {
             const WHEEL_DELTA: i16 = 120;
@@ -686,11 +685,9 @@ pub unsafe extern "system" fn wnd_proc(
         }
         WM_KEYDOWN | WM_SYSKEYDOWN => {
             window.input.set_key_down(wparam);
-            return 0;
         }
         WM_KEYUP | WM_SYSKEYUP => {
             window.input.set_key_up(wparam);
-            return 0;
         }
         WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN => {
             SetCapture(hwnd);
